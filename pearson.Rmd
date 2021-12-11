@@ -1,0 +1,111 @@
+---
+title: "Pearson Korrelation"
+output: html_notebook
+---
+
+Übungsaufgabe: Pearson
+
+## 1)	Hypothese 
+**Ungerichtet, zweiseitig** <br>
+H1: Es gibt einen Zusammenhang zwischen IQ und Projekterfolg. $$ r\neq < 0$$
+H0: Es gibt keinen Zusammenhang zwischen IQ und Projekterfolg.$$ r = 0$$
+
+
+## 2)	Voraussetzungen
+
+Die Variablen sind mindestens intervallskaliert -> Ja, beide Varibalen sind metrisch.
+IQ: intervallskalliert
+Projekterfolg: Verhältnisskala (Ratioskala) 
+
+ 
+Die Variablen sind normalverteilt (n>30)-> siehe Histogramm
+
+```{r}
+library(readxl)
+pearson <- read_excel("C:/Users/user/Downloads/pearson.xlsx")
+View(pearson)
+```
+```{r}
+hist(pearson$IQ,
+     main = "Histogramm zun IQ",
+     xlab = "IQ",
+     ylab = "Anzeil",
+     col = 'coral2',
+     xlim = c(60, 130),
+     breaks = 5
+)
+```
+```{r}
+hist(pearson$Projekterfolg,
+     main = "Histogramm zun IQ",
+     xlab = "Projekterfolg",
+     ylab = "Anzeil",
+     col = 'coral2',
+     xlim = c(20, 100),
+     breaks = 5
+)
+```
+Normalverteilung ist gegeben für beide Variable, schöne Glockenkurve(Gausskurve)
+
+
+## 3)	Grundlegende Konzepte: Was ist Pearson?
+Die Korrelation, auch bivariate Korrelation oder Produkt-Moment-Korrelation genannt, beschreibt den Zusammenhang von zwei intervallskalierten Merkmalen/Variablen einer Zufallsstichprobe. Eine Möglichkeit, die Stärke des Zusammenhangs zu bestimmen, ist die Berechnung des Korrelationskoeffizienten r nach Bravais und Pearson. Voraussetzung ist hierbei, dass es sich um einen linearen Zusammenhang zwischen den analysierten Merkmalen handelt. Zusätzlich wird hier ein ungerichteter Zusammenhang untersucht, d.h. die Variablen sind unabhängig voneinander und folglich werden keine kausalen Aussagen gemacht.
+
+Der Korrelationskoeffizient r kann Werte zwischen −1 und +1 annehmen und ist unabhängig von der Maßeinheit. Ein Wert von −1 beschreibt eine perfekt negative Korrelation und ein Wert von +1 eine perfekt positive Korrelation. Bei r=0 liegt kein linearer Zusammenhang zwischen den Variablen vor.
+
+## 4)	Grafische Veranschaulichung des Zusammenhangs -> Streudiagramm
+
+```{r}
+plot(pearson$Projekterfolg ~ pearson$IQ, #Zweivariable mit y'~'x
+     main = "Streudiagramm zwischen IQ und Projekterfolg", # Plot Titel
+     xlab = "IQ", # Achse x
+     ylab= "Projekterfolg") # Achse y
+
+abline(lm(pearson$Projekterfolg ~ pearson$IQ, # Linie: lm (linienModul) 
+          data = pearson), # Datenquelle
+       col="tomato") # Farbe
+```
+
+Es liegt eine Positive liniare Zusammenghang
+Das Streudiagramm in Abbildung zeigt eine tendenziell positive lineare Beziehung zwischen den beiden Variablen. Das heisst, die beiden Variablen korrelieren vermutlich. Da die Korrelationsanalyse einen ungerichteten Zusammenhang untersucht, lässt er sich auf zwei Weisen ausformulieren: Je höher der IQ, desto höher ist der Projekterfolg, oder je höher der Projekterfolg, desto höher ist der IQ.
+
+## 5)	Deskriptive Statistik
+```{r}
+library(psych)
+describe(pearson)
+```
+
+## 6)	Ergebnisse der Korrelationsanalyse
+```{r}
+test <- cor.test(pearson$Projekterfolg, pearson$IQ)
+test
+```
+
+## 7)	Berechnung des Bestimmtheitsmasses
+```{r}
+rbestimmt <- test$estimate^2*100
+sprintf("Das Bestimmtheitsmaß liegt bei %.2f Prozent.", rbestimmt)
+```
+Wird dieser Wert mit 100 multipliziert, so ergibt sich ein Prozentwert. Dieser gibt an, welcher Anteil der Varianz in beiden Variablen durch gemeinsame Varianzanteile determiniert wird. Für das vorliegende Beispiel beträgt der Anteil der gemeinsamen Varianz 97.52%.
+
+## 8)	Berechnung der Effektstärke
+Um die Bedeutsamkeit eines Ergebnisses zu beurteilen, werden Effektstärken berechnet. Im Beispiel ist die Korrelation der beiden Variablen signifikant, doch es stellt sich die Frage, ob der Zusammenhang gross genug ist, um ihn als bedeutend einzustufen. Der Korrelationskoeffizient r von Bravais-Pearson stellt selbst ein Mass für die Effektstärke dar.
+
+Um zu bestimmen, wie gross der gefundene Zusammenhang ist, kann man sich an der Einteilung von Cohen (1992) orientieren:
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||r|| < 0.30             \\
+\text{Schwacher bis mittlerer Effekt: } 0.30 &= ||r||      \\
+\text{Mittlerer Effekt: } 0.30 &< ||r|| < 0.50             \\
+\text{Mittlerer bis starker Effekt: }0.50 &= ||r||         \\
+\text{Starker Effekt: } 0.50 &< ||r||        
+\end{align}
+$$
+```{r}
+sprintf("Die Effektstärke liegt bei %.4f.",test$estimate)
+```
+Damit entspricht ein Korrelationskoeffizient(r) von .9875 einem starken Effekt.
+
+## 9)	 Aussage
+
+Der IQ und der Projekterfolg korrelieren signifikant $(r = .9875, p <2.2e-16, n = 104)$. Je höher der IQ eines Jugendlichen, desto besser ist das Projektergebnis. 97.52%. der Streuung der gemeinsamen Varianz kann durch IQ und Projekterfolg erklärt werden. Dabei handelt es sich nach Cohen (1992) um einen starken Effekt. H0 kann verworfen werden.

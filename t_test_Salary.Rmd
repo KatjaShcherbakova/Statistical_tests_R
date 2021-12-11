@@ -1,0 +1,85 @@
+---
+title: "t test Salary"
+output: html_notebook
+---
+```{r}
+Salary <- read.csv("Salary.csv", row.names=1, sep=";")
+Salary$X1 <- NULL
+View(Salary)
+```
+### 1) Hypothese
++ H0:"Es gibt keinen Gehaltsunterschied zwieschen 
+  + Sex
+  + Discipline
+  + Rank"
+
++ H1:"Es gibt einen Gehaltsunterschied zwieschen 
+  + Geschlescht
+  + Discipline
+  + Rank"
+
+### 2) Erst checken wir  unsere Variablen nach der Voraussetzungen
+
++ ***Die abhängige Variable ist metrisch -> "salary" (AV)***
++ ***Es liegt eine unabhängige Variable vor, mittels der die beiden zu vergleichenden gebildet werden.*** -> Ja, 
+'sex' - 'Female','Male'
+'discipline' - 'A', 'B'
+'rank' - 'Prof', 'AssocProf' (2 aus 3 Variablen sind ausgewaelt)
+```{r}
+Salary$sex <- as.factor(Salary$sex)
+Salary$discipline <- as.factor(Salary$discipline)
+Salary$rank <- as.factor(Salary$rank)
+```
+```{r}
+summary(Salary$sex)
+summary(Salary$discipline)
+summary(Salary$rank)
+```
++ ***Das untersuchte Merkmal ist in den Grundgesamtheiten der beiden Gruppen normalverteilt -> siehe Histogramm***
+
+
+```{r}
+x <- scale(Male$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei Maennern")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+
+```{r}
+x <- scale(Female$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei Frauen", breaks=6)
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+
+```{r}
+x <- scale(A$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei Discipline A")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+```{r}
+x <- scale(B$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei Discipline B")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+```{r}
+x <- scale(Prof$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei Professor")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+```{r}
+x <- scale(AssocProf$salary)
+hist(x, col='tomato', freq=FALSE, main="Gehalt bei AssocProfessor")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+

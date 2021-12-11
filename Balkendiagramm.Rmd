@@ -1,0 +1,121 @@
+---
+title: "Balkendiagramm"
+output: html_notebook
+---
+### 1) Beschreibung
+
+Das Balkendiagramm, bzw. Säulendiagramm stellt die Informationen durch waagerecht, bzw. senkrecht liegende Balken dar.
+
+### 2) Voraussetzungen
+
+Balken- und Säulendiagramme eignen sich für kategoriale Variablen (nominal- oder ordinalskaliert).
+
+### 3) Gestaltung 
+
++ Farbe
++ Beschriftung
+
+### 4) R- Code
+
+```{r}
+data <- read.csv("tips.csv")
+head(data)
+```
+```{r}
+table <- table(data$day)
+table
+```
++ Base code
+```{r}
+unique(data$day)
+data$day <- factor(data$day, levels = c("Thur","Fri","Sat","Sun"))
+```
+
+```{r}
+counts <- table(data$day) # Die Ausprägungen werden gezählt
+barplot(counts, #Infos
+        main = "Säulendiagramm", #Überschrift 
+        xlab ="Wochentag",  # x-Achse
+        ylab = "Anzahl", # Y-Achse
+        col = c("yellow", "green", "red","blue") # Farben 
+        )
+```
+```{r}
+counts <- table(data$day) # Die Ausprägungen werden gezählt
+barplot(counts, #Infos
+        main = "Balkendiagramm", #Überschrift 
+        xlab ="Wochentag",  # x-Achse
+        ylab = "Anzahl", # Y-Achse
+        col = c("yellow", "green", "red","blue"), # Farben 
+        horiz=TRUE, #Drehen
+        las =1 # Bezeichnung drehen
+        )
+```
+
+
+```{r}
+counts <- table(data$day)
+barplot(counts, 
+        density=c(5,10,20,30), 
+        angle=c(0,45,90,11), 
+        col="brown",
+        main = "Säulendiagramm", #Überschrift 
+        xlab ="Wochentag",  # x-Achse
+        ylab = "Anzahl" # Y-Achse
+        )
+```
+
++ ggplot code
+
+```{r}
+date_time <- table(data$time, data$day) 
+date_time
+```
+
+```{r}
+barplot(date_time,
+        beside = TRUE,
+        col = c("red","blue")
+        )
+legend(1, 80, legend=c("Dinner", "Lunch"),
+       col=c("red", "blue"), lty=1, cex=0.5)
+```
++ ggplot code
+
+
+```{r}
+library(ggplot2)
+
+ggplot(data, aes(x=day)) +
+  
+  geom_bar(color= c("yellow","brown", "green", "red"),
+           fill= c("lightskyblue1", "lightskyblue2",   
+                   "lightskyblue4","lightskyblue3"
+                   )
+           )
+```
+```{r}
+library(ggplot2)
+ggplot(data[6], aes(x=day)) + # Daten
+    geom_bar(color= c("yellow","brown", "green", "red"),#Farbe für die Linie
+           fill= c("lightskyblue1", "lightskyblue2",    
+                   "lightskyblue4","lightskyblue3")
+           )+
+coord_flip() #Drehen
+```
+```{r}
+date_time_frame <- data.frame(data$day, data$time)
+count_value <- data.frame(table(date_time_frame))
+count_value
+```
+```{r}
+library(ggplot2)
+
+ggplot(count_value, aes(fill=data.time, y=Freq, x=data.day)) + 
+    geom_bar(position="stack", stat="identity")+
+    ggtitle("Stacked Säulendiagramm")
+
+```
+
+
+

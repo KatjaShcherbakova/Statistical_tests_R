@@ -1,0 +1,210 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+***Libraries*
+```{r}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+
+##Beschreibung
+Es wurde eine Studie im Unternehmen "Effektivität und Effizienz" durchgeführt. Dazu wurden die Young Professionals zu Beginn des neuen Jobs, nach drei Monaten und nach 6 Monaten befragt, wie sich ihre Leistungsmotivation entwickelt hat. Wie verändert sich die Leistungsmotivation der neuen jungen und dynamtischen Mitarbeiter
+
+**Dataset**
+```{r}
+leistung <- read_excel('uebung17.xlsx')
+head(leistung)
+```
+```{r}
+#Spaltennamen umbenennen
+colnames(leistung)[3] <- "Leistungsmotivation"
+head(leistung)
+```
+
+
+## Roadmap
+1. Hypothese
+2. Voraussetzungen der einfaktoriellen Varianzanalyse mit Messwiederholung
+3. Grundlegende Konzepte
+4. Deskriptive Statistik
+5. Mauchly-Test auf Sphärizität
+6. Ergebnisse der einfaktoriellen Varianzanalyse mit Messwiederholung
+7. Post-hoc-Tests
+8. Profildiagramm
+9. Berechnung der Effektstärke
+10. Eine Aussage
+
+## Hypothese
+✓ H0: Die Leistungsmotivation der Probanden unterscheidet sich nicht zu verschiedenen Messzeitpunkten.
+$$M_{g1} = M_{g2} = M_{g3}$$
+
+✓ H1: Die Leistungsmotivaton dder Probanden unterscheidet sich zu verschiedenen Messzeitpunkten.
+$$M_{g1} \neq M_{g2} \neq M_{g3} \rightarrow \text{min. in einem Vergleich}$$
+## Voraussetzungen der einfaktoriellen Varianzanalyse mit Messwiederholung
+✓ Die abhängige Variable ist intervallskaliert -> Die Variable “Leistungsmotivation” ist ratioskaliert.
+
+✓ Die abhängige Variable ist normalverteilt innerhalb jedes Messzeitpunktes (Ab > 25 Probanden pro Messzeitpunkt sind Verletzungen in der Regel unproblematisch) -> siehe Histogrammm oder QQ-Plot
+
+✓ Sphärizität ist gegeben -> siehe Mauchly-Test auf Sphärizität
+
+**Histogrammm**
+```{r}
+#die Reihenfolge ändern
+leistung$Phase <- factor(leistung$Phase, levels=c("Honeymoon(Anfang)", "Hangover(3M)", "Normalitaet(6M)" ))   
+```
+```{r}
+leistung %>%
+  group_by(Phase) %>%
+  ggplot(aes(Leistungsmotivation, color=Phase)) + 
+  geom_histogram(aes(fill = Phase), bins = 20) +
+  facet_wrap(~Phase, ncol = 1) +
+  theme_grey()+
+  labs(x= "Leistungsmotivation",y = "Anzahl" )
+```
+
+
+```{r}
+ggplot(leistung, 
+aes(Leistungsmotivation, 
+color=Phase
+)
+) +
+geom_histogram(binwidth=1, 
+aes(fill = Phase), 
+bins = 20,
+show.legend = TRUE 
+) +
+geom_density(aes(y = ..count.., 
+fill = Phase
+), 
+alpha=0.2, 
+colour = "black",
+size = 0.3,
+show.legend = TRUE
+) +
+theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "gray45"),
+panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+plot.background = element_rect(fill = "moccasin")
+)+
+scale_fill_discrete(name = "Phasen", 
+breaks = c("Honeymoon", "Hangover", "Normalitaet"),
+labels = c("Honeymoon - Anfangs", 
+"Hangover - 3 Monate", 
+"Normalitaet - 6 Monate"
+),
+aesthetics = "fill" # Die System-Farben werden verwendet.
+)+
+guides(#fill = FALSE, # Mit "fill = FALSE" werden alle Legenden (automatisch,manuell) abgeschaltet.
+color = "none"
+) + 
+facet_wrap(~ Phase, 
+ncol = 1
+) + 
+labs(title = "Histogramme",
+subtitle = "xxx",
+x = "Leistungsmotivation",
+y = "Anzahl"
+)   
+```
+**qqPlot**
+```{r}
+qqPlot(Leistungsmotivation ~ Phase, data=leistung, 
+       layout=c(1, 3),
+       main = "QQPlot für die Leistungsmotivation",
+       xlab = "Normierte Quantile",
+       ylab = "Leistungsmotivation"
+      ) 
+```
+qqPlot zeigt, dass die Leistungsmotivation zur Normallverteilung tendiert.
+
+## Deskriptive Statistik
+```{r}
+leistung %>%
+group_by(Phase) %>%
+  summarize(Anzahl = n(), Mittelwert = mean(Leistungsmotivation), Median = median(Leistungsmotivation), Standardabweichung = sd(Leistungsmotivation)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+**Die Zahl der Daten sollte identsich sein. Hier sind es immer 29 Personen.**
+
+Es gibt einen Mittelwertsunterschied zwischen den Leistungsmotivation. Die Anfanger (M = 44.48, SD = 2.01, n=29) haben die größte Leistungsmotivation. Danach verlieren die Hangover seine Motivation(M = 11.48, SD = 1.99, n = 29), danach steigt die Motivation bei den Normalitaet (M = 28.59	, SD = 2.11, n= 29), aber nicht zum Niveue von den Anfangern.
+
+## Mauchly-Test auf Sphärizität
+Ist das Epsilon: p > 0.05 => Ergebnis nicht Signifikant –> Sphärizität
+Ist das Epsilon: p < 0.05 => Ergebnis Signifikant –> keine Sphärizität-> Wenn dies der Fall ist, müssen die Freiheitsgrade mit dem Korrekturfaktor angepasst werden.
+
+-> Ist Epsilon < 0.75 ->Greenhouse-Geisser
+-> Ist Epsilon > 0.75 ->Huynh-Feldt
+
+## Ergebnisse der einfaktoriellen Varianzanalyse mit Messwiederholung
+```{r}
+library(afex)
+anova <- aov_car(Leistungsmotivation~Error(ID/Phase), data = leistung, return ="univariate")
+anova
+```
+**keine Anpassung**
+
+```{r}
+leistung1b <- aov_car(Leistungsmotivation~Error(ID/Phase), data = leistung)
+leistung2a <- anova(leistung1b, es="pes", correction="none", intercept= TRUE)
+leistung2b <- anova(leistung1b, es="pes", correction="GG")
+leistung2c <- anova(leistung1b, es="pes", correction="HF")
+leistung2<- rbind("nicht Korrigiert"=leistung2a, "Greenhouse-Geisser"=leistung2b, "Huynh-Feldt"=leistung2c)
+leistung2
+```
+**Eine Varianzanalyse mit Messwiederholung zeigt, dass sich die Leistungsmotivation je nach Phase unterscheidet. (F(2,56) = 2184.8, p < .000, n = 29).**
+
+## Post-hoc-Tests
+```{r}
+pairwise.t.test(leistung$Leistungsmotivation, 
+                leistung$Phase, 
+                p.adjust.method = "bonferroni", 
+                paired = TRUE, 
+                data = leistung)
+```
+Es wird ersichtlich, dass alle drei Messzeitpunkt sich sig unterscheiden(p < .05, wegen method=“bonferroni”). Daher lassen sich für eigenständige Gruppen bilden.
+
+## Profildiagramm
+```{r}
+ggplot(leistung, aes(x=Phase, y=Leistungsmotivation, group=1))+
+stat_summary(fun.y = mean, geom="point", size=3)+
+stat_summary(fun.y = mean, geom="line")+
+stat_summary(fun.data = mean_cl_normal, geom="errorbar",width=.2, size=.25)+
+labs(x="Phase", y="Leistungsmotivationsskala")+
+theme_classic()
+```
+
+
+## Berechnung der Effektstärke
+```{r}
+sprintf("Partielle Eta-Quadrat für 'Phase': eta= %.4f",leistung2a$pes[2])
+```
+```{r}
+effneu <- sqrt(leistung2$pes[2]/(1-leistung2$pes[2]))
+
+sprintf("Effektstärke: f= %.3f",effneu)
+```
+Um zu beurteilen, wie gross dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+
+f = .10 entspricht einem schwachen Effekt
+
+f = .25 entspricht einem mittleren Effekt
+
+f = .40 entspricht einem starken Effekt
+
+**Damit entsprechen die Effektstärken von 8.833 einem starken Effekt.**
+
+10. Eine Aussage
+
+Eine Varianzanalyse mit Messwiederholung zeigt, dass sich die Leistungsmotivation der ProbandInnen je nach Messzeitpunkt unterscheidet. (F(2,56) = 2184.8, p < .000, partielles η2 = .9873, n = 29). Der Mauchly-Test ergab, dass Sphärizität gegeben ist, weshalb die Greenhouse-Geisser-Korrektur nicht angewendet wurde, wodurch sich korrigierte Freiheitsgrade nicht ergeben.
+
+Der Post-Hoc-Test zeigt, dass die Leistungsmotivation der ProbandInnen zum Messzeitpunkt Honeymoon (M =44.48, SD = 2.01, n=29) signifikant höher sind als zum Messzeitpunkt Hangover (3M) (M =11.48, SD = 1.99, n=29) aber wieder zum Messzeitpunkt Normalität(6M)(M =28.59, SD=2.11, n=29) steigt .
+
+Die Effektstärke liegt bei f=8.833 und entspricht damit nach Cohen (1988) einem starken Effekt. H0 kann verworfen werden, H1 angenommen.
+
+Handlungsempfehlung:
+hohe Erwertung -esrt
+danach schiefgehen

@@ -1,0 +1,226 @@
+---
+title: "ANOVA Einfaktoriellen Varianzanalyse ohne Messwiederholung"
+output: html_notebook
+---
+## Beschreibung
+
+Welche Musik hören Sie gerne? Diese und ähnliche Fragen werden meistens in einem lockern Smalltalk gestellt. Warum fragen wir eigentlich unser gegenüber nach dieser? Können wir Rückschlüße auf die Persönlichkeit ziehen. In Rahmen dieser Studie soll untersucht werden, ob es einen Unterschied in der Verträglichkeit zwischen den Musikstilen "Jazz", "Pop", "Elekto" und "Metal" gibt. Je höher der Verträglichkeitswert, desto "kooperativer", "harmonischer" ist eine Person.
+
+**Libraries**
+```{r}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(car)
+```
+
+**Dataset**
+```{r}
+musikstil <- read_excel("musikstill.xlsx")
+head(musikstil)
+```
+```{r} 
+musikstil$Musikstil <- as.factor(musikstil$Musikstil)
+summary(musikstil)
+```
+
+## Hypothese
+✓ H1: Es gibt einen Mittelwertsunterschied zwischen der Musikstile (Elektro, Jazz, Metal, Pop) und der Vertraeglichkeit.
+
+$$M1≠M2≠M3≠M4\quad für\;min.\;einen\;Vergleich$$
+
+✓ H0: EEs gibt keinen Mittelwertsunterschied zwischen der Musikstile (Elektro, Jazz, Metal, Pop) und der Vertraeglichkeit.  $$M1=M2=M3=M4$$
+
+## Voraussetzungen der einfaktoriellen Varianzanalyse ohne Messwiederholung
+
+✓ Die AV ist intervallskaliert -> Vertraeglichkeit ist eigentlich nicht metrisch, sondern ordinalskaliert.
+
+✓ Die unabhängige Variable (Faktor) ist kategorial (nominal- oder ordinalskaliert) -> Die Musikstile sind nominal-skaliert.
+
+✓ Die durch den Faktor gebildeten Gruppen sind unabhängig. Jeder Proband hat ausschliesslich nur einen Musikstil ausgewaelt.
+
+✓ Die abhängige Variablen ist normalverteilt innerhalb jeder der Gruppen (Ab > 25 Probanden pro Gruppe sind Verletzungen in der Regel unproblematisch) -> siehe Histogramm und QQplot. In Rahmen dieser Studie hat jede Gruppe mehr als 25 Probanden.
+
+✓ Homogenität der Varianzen: Die Gruppen stammen aus Grundgesamtheiten mit annähernd identischen Varianzen der abhängigen Variablen -> siehe Levene-Test
+
+## Grundlegende Konzepte: Die Grundidee der Varianzanalyse
+Die einfaktorielle Varianzanalyse ("einfaktorielle ANOVA") testet, ob sich die Mittelwerte mehrerer unabhängiger Gruppen (oder Stichproben) unterscheiden, die durch eine kategoriale unabhängige Variable definiert werden. Diese kategoriale unabhängige Variable wird im Kontext der Varianzanalyse als "Faktor" bezeichnet. Entsprechend werden die Ausprägungen der unabhängigen Variable "Faktorstufen" genannt, wobei auch der Begriff der "Treatments" gebräuchlich ist. Als "einfaktoriell" wird eine Varianzanalyse bezeichnet, wenn sie lediglich einen Faktor, also eine Gruppierungsvariable, verwendet mehrfaktorielle Varianzanalyse).
+
+Das Prinzip der Varianzanalyse besteht in der Zerlegung der Varianz der abhängigen Variable. Die Gesamtvarianz setzt sich aus der sogenannten "Varianz innerhalb der Gruppen" und der "Varianz zwischen den Gruppen" zusammen. Diese beiden Anteile werden im Rahmen einer Varianzanalyse miteinander verglichen. Die einfaktorielle ANOVA stellt eine Verallgemeinerung des t-Tests für unabhängige Stichproben für Vergleich von mehr als zwei Gruppen (oder Stichproben) dar. Die Fragestellung der einfaktoriellen Varianzanalyse wird oft so verkürzt: "Unterscheiden sich die Mittelwerte einer unabhängigen Variable zwischen mehreren Gruppen? Welche Faktorstufen unterscheiden sich?"
+
+## Boxplots
+
+```{r}
+my_xlab <- paste(levels(musikstil$Musikstil),"\n(N=",table(musikstil$Musikstil),")",sep="")
+
+ggplot(musikstil, aes(x=Musikstil, y=Vertraeglichkeit, fill=Musikstil)) +
+    geom_boxplot(varwidth = TRUE, alpha=0.2) +
+    theme(legend.position="none") +
+    scale_x_discrete(labels=my_xlab)
+```
+Boxplot zeigt keine Ausreisser. Die Mittelwerte von Pop und Elektro scheinen sich gleich. Jazz, Pop, Metal oder Elektro, Jazz, Metal scheinen sich von einander zu unterscheiden.
+Um zu überprüfen, ob die Unterschiede signifikant sind, wird eine Varianzanalyse durchgeführt.
+
+## Normalverteilung
+
+**Prüfung mittels Histogramm**
+
+```{r}
+
+musikstil %>%
+  group_by(Musikstil) %>%
+  ggplot(aes(Vertraeglichkeit, color=Musikstil)) + 
+  geom_histogram(aes(fill = Musikstil), bins = 10, alpha=0.2) +
+  facet_wrap(~Musikstil) +
+  theme(legend.position="none") +
+  labs(x= "Vertraeglichkeit",y = "Anzahl" )
+```
+Pop und Jazz tendieren zu einer Normalverteilung.
+Die Verletzungen von Metal und Elekto können vernachlässigt werden, da es mehr als 25 Probanden in den Gruppen  gibt.
+
+```{r}
+qqPlot(Vertraeglichkeit ~ Musikstil, data=musikstil, 
+       layout=c(1, 4))
+```
+## Prüfung der Varianzhomogenität (Levene-Test)
+
+✓ H0: die Varianzen der Gruppen unterscheiden sich nicht -> die Variablen sind homogenen.
+
+✓ H1: die Varianzen der Gruppen unterscheiden sich -> die Variablen sind hetrogen.
+
+```{r}
+leveneTest(musikstil$Vertraeglichkeit ~ musikstil$Musikstil, center="mean")
+```
+Der Levene-Test signifikant(F(3,259) = 13.93, p = 1.883e-08), so dass von Varianzhetrogenität ausgegangen werden kann. Das heisst: <br>
+**es muss eine Welch-Korrektur durchgeführt werden.**
+
+## Deskriptive Statistiken
+```{r}
+musikstil %>%
+group_by(Musikstil) %>%
+  summarise(Anzahl = n(), Mittelwert = mean(Vertraeglichkeit), Median = median(Vertraeglichkeit), Standardabweichung = sd(Vertraeglichkeit)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+Es gibt einen Mittelwertsunterschied zwischen den Gruppen,
+nur Electro und Pop untescheiden sich, wie der Boxplot oben zeigt, fast nicht.
+
+Metal (Median = 4,5,n = 64) zeigt die beste Vertraeglichkeit,
+Jazz (Median = 1 , n = 86) zeigt die schlimmste Vertraeglichkeit.
+
+## Ergebnisse der einfaktoriellen Varianzanalyse
+
+**Modell mit Welch-Korrektur**
+```{r}
+ANOVAmitWelch <- oneway.test(musikstil$Vertraeglichkeit ~ musikstil$Musikstil)
+ANOVAmitWelch
+```
+
+Das Gesamtmodel ist signifikant geworden (F(3,131.04) = 221.33 , p = 2.2e-16). Allerdings lässt sich aufgrund dieses Tests nicht bestimmen, welche der vier Gruppen sich signifikant voneinander unterscheiden. Es ist denkbar, dass sich lediglich ein Paar signifikant unterscheidet und zwischen den übrigen keine signifikanten Unterschiede vorliegen. Daher wird ein Post-hoc-Test durchgeführt.
+
+***Zum Vergleich ein Modell ohne Welch-Korrektur*
+```{r}
+ANOVA <- aov(data=musikstil, musikstil$Vertraeglichkeit~musikstil$Musikstil) #Model gebildet
+summary(ANOVA)
+```
+
+## Post-hoc-Tests
+
+Obwohl der F -Test zeigt, dass ein Beeinfluss von Musikstil auf Vertraeglichkeit besteht, muss anhand von Post-hoc-Tests geklärt werden, zwischen welchen Faktorstufen (Musikstile) signifikante Unterschiede bezüglich der Vertraeglichkeit bestehen.
+```{r}
+TUKEY<- TukeyHSD(aov(data=musikstil, musikstil$Vertraeglichkeit~musikstil$Musikstil))
+TUKEY
+```
+Das Testergebnis belegt die oben aufgestellte Vermutung, dass Gruppen von Pop/Elektro-Fans das gleiche Maß an Vertraeglichkeit aufweisen.
+
+```{r}
+plot(TUKEY , las=1 , col="red")
+
+
+
+```
+Der Games-Howell ist ein Post-Hoc-Test, der optimiert für hetrogene Daten ist. Daher der Levene-Test eine Verletzung der Homogenotät nahliegt, sollte in Verfahren verwendet werden, welche dieses Verletzung bei dem multiple Tests berücksichtigt.
+
+```{r}
+library(rstatix)
+musikstil %>% 
+  games_howell_test(Vertraeglichkeit ~ Musikstil)
+```
+
+
+
+Die folgende Fragen soll beantworten werden:
+
++ **1.Welcher Vergleich wird signifikant und welcher nicht?**
+Pop-Elektro Unterscheidung  ist nicht signifikant.
+
++ **2.Welche Gruppen sind unabhängig und welche nicht?**
+Es gibt also drei unabhängige Gruppen von Musikstilen.
+Jazz, Pop, Metal oder Elektro, Jazz, Metal unterscheiden sich von einander.
+
++ **3.Optional: Sind Gruppenbildungen möglich/ sinnvoll? - Wenn ja, welche?**
+
+```{r}
+library(multcompView)
+generate_label_df <- function(TUKEY, variable){
+     Tukey.levels <- TUKEY[[variable]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+ 
+LABELS <- generate_label_df(TUKEY , "musikstil$Musikstil")
+
+table(LABELS)
+```
+
+**Es kann drei Gruppen gebildet werden - Elektro-Pop als eine Gruppe**
+
+## Plot der Mittelwerte --> Profildiagramm
+```{r}
+ggplot(musikstil, aes(x=Musikstil, y=Vertraeglichkeit, group=1))+
+  stat_summary(fun = mean, geom="point", size=3)+
+  stat_summary(fun = mean, geom="line")+
+  stat_summary(fun.data = mean_cl_normal, geom="errorbar",width=.2, size=.25)+
+  labs(x="Musikstil", y="Vertraeglichkeit")+
+  theme_classic()
+```
+
+## Berechnung der Effektstärke
+
+```{r}
+library(effectsize)
+
+ANOVA <- aov(data=musikstil, musikstil$Vertraeglichkeit~musikstil$Musikstil)
+eta <- effectsize::eta_squared(ANOVA, partial = TRUE)
+```
+```{r}
+eta
+```
+Das partielle Eta-Quadrat beträgt 0.66. Das heisst, es wird 66% der Variation in Vertraeglichkeit durch Musikstil aufgeklärt. Das partielle Eta² wird gerundet.“95% CI” beschreibt das Konfidenzintervall für 95 %. Dieses liegt hier zwischen 61% und 100%.
+
+**Effektstärke**
+```{r}
+eff<- sqrt(eta$Eta2/(1-eta$Eta2))
+sprintf ("Die Effektstärke liegt bei:%.2f",eff)
+```
+Um zu beurteilen, wie gross dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+$$\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||f|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||f||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||f|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||f||         \\
+\text{Starker Effekt: } 0.40 &< ||f||        
+\end{align}$$
+
+Damit entspricht eine Effektstärke von 1.41 einem starken Effekt.
+
+## Eine Aussage
+
+Der Lieblingsmusikstil hat einen signifikanten Einfluss auf die Vertraeglichkeit ((F(3,131.04) = 221.33 , p = 2.2e-16)). 66% der Streuung der Vertraeglichkeit-Werte um den Gesamtmittelwert kann durch den Musikstil erklärt werden. Die Effektstärke nach Cohen (1988) liegt bei f = 1.41 und entspricht einem starken Effekt. H0 wird abgelehnt, H1 angenommen.
+
+Post-hoc-Tests mit Tukey zeigen, dass sich nur drei Gruppen von Musikstilen  bilden lassen.
+Vertraeglichkeit von Pop- und Elektrostilen Unterscheidung  ist nicht signifikant.
+Vertraeglichkeit von Jazz, Pop, Metal oder von Elektro, Jazz, Metal unterscheiden sich von einander.
+
+![Musik](music.jpg)

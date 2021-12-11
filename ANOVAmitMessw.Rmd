@@ -1,0 +1,219 @@
+---
+title: "ANOVA - Einfaktorielle Varianzanalyse mit Messwiederholung"
+output: html_notebook
+---
+## Beschreibung
+Es soll untersucht werden, ob es einen Unterschied zwischen Training und Gewichtsreduktion gibt. Daher nehmen die Teilnehmer an einem innovativen Training teil. T0 vor dem Training, T1 nach dem ersten Training, T2 nach dem zweiten Training und T3 nach dem letzten Training. Verändert sich die Gewicht im Verlauf des Monats?
+
+**Dataset**
+```{r}
+library(readxl)
+mitmess <- read_excel('mitmess.xlsx')
+head(mitmess)
+```
+
+## Roadmap
+
+1.	Hypothese
+2.	Voraussetzungen der einfaktoriellen Varianzanalyse mit Messwiederholung
+3.	Grundlegende Konzepte
+4.	Deskriptive Statistik 
+5.	Mauchly-TM_{T0} = M_{T1} = M_{T2}= M_{T3}est auf Sphärizität
+6.	Ergebnisse der einfaktoriellen Varianzanalyse mit Messwiederholung
+7.	Post-hoc-Tests
+8.	Profildiagramm
+9.	Berechnung der Effektstärke
+10.	Eine Aussage
+
+## Hypothese
+✓ H0: Das Gewicht der Testpersonen unterscheidet sich nicht zu verschiedenen Messzeitpunkten.
+$$M_{T0} = M_{T1} = M_{T2}= M_{T3}$$ 
+✓ H1: Das Gewicht der Testpersonen unterscheidet sich zu verschiedenen Messzeitpunkten
+$$M_{T0} \neq M_{T1} \neq M_{T2}\neq M_{T3} \rightarrow \text{min. in einem Vergleich}$$
+## Voraussetzungen
+
+✓	Die abhängige Variable ist intervallskaliert --> Die Variable “Gewicht” ist ratioskaliert.
+✓	Die abhängige Variable ist normalverteilt innerhalb jedes Messzeitpunktes (Ab > 25 Probanden pro Messzeitpunkt sind Verletzungen in der Regel unproblematisch) -->  siehe Histogrammm oder QQ-Plot
+✓	Sphärizität ist gegeben (Mauchly-Test auf Sphärizität) --> siehe Mauchly-Test auf Sphärizität
+✓	Es liegen min. drei verbundene Stichproben oder Gruppen vor, aber die verschiedenen Messwertpaare sind voneinander unabhängig --> jeder Proband wurde mehrmals untersucht.
+
+**Histogramm**
+```{r}
+library(dplyr)
+mitmess %>%
+  group_by(Zeitpunkt) %>%
+  ggplot(aes(Gewicht, color=Zeitpunkt)) + 
+  geom_histogram(aes(fill = Zeitpunkt), bins = 20) +
+  facet_wrap(~Zeitpunkt) +
+  theme_grey()+
+  labs(x= "Gewicht in kg",y = "Anzahl" )
+```
+Die Daten sind augenscheinlich eher nicht normalverteilt. Daher sollte der Friedman bevorzugt werden. Allerdings im Rahmen der Übungen und unter Anbetracht der Größe der Daten wird die Normalverteilung als gegeben angesehen.
+
+```{r}
+ggplot(mitmess, 
+aes(Gewicht, 
+color=Zeitpunkt
+)
+) +
+geom_histogram(binwidth=1, 
+aes(fill = Zeitpunkt), 
+bins = 20,
+show.legend = TRUE 
+) +
+geom_density(aes(y = ..count.., 
+fill = Zeitpunkt
+), 
+alpha=0.2, 
+colour = "black",
+size = 0.3,
+show.legend = TRUE
+) +
+theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "gray45"),
+panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+plot.background = element_rect(fill = "moccasin")
+)+
+scale_fill_discrete(name = "Untersuchte Zeitpunkte", 
+breaks = c("T0", "T1", "T2", "T3"),
+labels = c("T0 - mit Start des Trainings", 
+"T1 - nach 1 Woche Training", 
+"T2 - nach 2 Wochen Training",
+"T3 - nach 3 Wochen Training"
+),
+aesthetics = "fill" # Die System-Farben werden verwendet.
+)+
+guides(#fill = FALSE, # Mit "fill = FALSE" werden alle Legenden (automatisch,manuell) abgeschaltet.
+color = "none"
+) + 
+facet_wrap(~ Zeitpunkt, 
+ncol = 2
+) + 
+labs(title = "Histogramme",
+subtitle = "xxx",
+x = "Gewicht",
+y = "Anzahl"
+) 
+```
+## Grundlegende Konzepte
+
+## Deskriptive Statistik
+Die Tabelle gibt die Mittelwerte, Standardabweichungen und Grössen aller vier Messzeitpunkte wieder. Diese Informationen werden für die Berichterstattung verwendet.
+```{r}
+mitmess %>%
+group_by(Zeitpunkt) %>%
+  summarize(Anzahl = n(), Mittelwert = mean(Gewicht), Median = median(Gewicht), Standardabweichung = sd(Gewicht)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+Es gibt einen Mittelwertsunterschied zwischen den Messzeitpunkten. Vor dem Training wogen die Teilnehmer im Mittel 85,97 kg (SD = 8.82, n=73). Nach einer Woche Training lag das Gewicht bei 81.86 (SD = 9.07,n=73). In der zweiten Woche bei 77.97 kg(SD=9.17,n=73). In der letzten Woche haben die Teilnehmer nur noch 73.03 kg im Schnitt(SD=9.39,n=73) gewogen. Damit haben Sie innerhalb von vier Wochen 12 kg abgenommen.
+
+Die Zahl der Daten sollte identsich sein. Hier sind es immer 73 Personen.
+
+##	Mauchly-Test auf Sphärizität
+Eine Voraussetzung für die Durchführung einer Varianzanalyse mit Messwiederholung ist die sogenannte “Compound symmetry”: Diese ist gegeben, wenn die Stichprobenvarianzen der einzelnen Messzeitpunkte homogen und die Korrelationen zwischen jedem Paar von Messzeitpunkten identisch sind, wenn folglich homogene Stichprobenvarianzen und -korrelationen vorliegen.
+Um die Voraussetzung der Sphärizität zu überprüfen, wird der Mauchly-Test durchgeführt. Ist der Mauchly-Test nicht signifikant, so kann von Sphärizität ausgegangen werden. Wäre der Mauchly-Test aber signifikant, so läge keine Sphärizität vor.
+Ist die Voraussetzung der Sphärizität nicht erfüllt, so werden die Freiheitsgrade der Signifikanztests angepasst, indem sie mit einem Korrekturfaktor Epsilon (ε) multipliziert werden. R gibt einerseits das Epsilon nach Greenhouse-Geisser aus, andererseits das Epsilon nach Huynh-Feldt. Das erstere ist etwas restriktiver und wird daher bei stärkeren Verletzungen der Annahme der Sphärizität eingesetzt: Ist das Epsilon nach Greenhouse-Geisser < .75, so wird die Korrektur nach Greenhouse-Geisser verwendet. Ist das Epsilon nach Greenhouse-Geisser > .75, so wird die Korrektur nach Huynh-Feldt eingesetzt
+
+Ist das Epsilon: p > 0.05 => Ergebnis nicht Signifikant –> Sphärizität
+Ist das Epsilon: p < 0.05 => Ergebnis Signifikant –> keine Sphärizität-> Wenn dies der Fall ist, müssen die Freiheitsgrade mit dem Korrekturfaktor angepasst werden.
+
+-> Ist Epsilon < 0.75 ->Greenhouse-Geisser
+-> Ist Epsilon > 0.75 ->Huynh-Feldt
+
+## 	Ergebnisse der einfaktoriellen Varianzanalyse mit Messwiederholung
+```{r}
+library(afex)
+anova <- aov_car(Gewicht~Error(ID/Zeitpunkt), data = mitmess, return ="univariate")
+anova
+```
+Ist das Epsilon: p > 0.05 => Ergebnis nicht Signifikant –> Sphärizität Ist das Epsilon: p < 0.05 => Ergebnis Signifikant –> keine Sphärizität-> Wenn dies der Fall ist, müssen die Freiheitsgrade mit dem Korrekturfaktor angepasst werden. -> Ist Epsilon < 0.75 ->Greenhouse-Geisser -> Ist Epsilon > 0.75 ->Huynh-Feldt
+```{r}
+out5b <- aov_car(Gewicht~Error(ID/Zeitpunkt), data = mitmess)
+out6a <- anova(out5b, es="pes", correction="none", intercept= TRUE)
+out6b <- anova(out5b, es="pes", correction="GG")
+out6c <- anova(out5b, es="pes", correction="HF")
+out6 <- rbind("nicht Korrigiert"=out6a, "Greenhouse-Geisser"=out6b, "Huynh-Feldt"=out6c)
+out6
+```
+Die Korrektur in diesem Beispiel wird nach Greenhouse-Geisser durchgeführt, dass bedeutet die Freiheitsgrade werden mit dem Greenhouse-Geisser Eplison multipliziert.
+$$df1 = 3*0.50228 \rightarrow  1.506$$
+$$df2 = 216*0.50228 \rightarrow  108.49$$
+Die Freiheitsgrade entnehmen wir der dritte Zeile von “out6”.
+
+**Eine Varianzanalyse mit Messwiederholung zeigt, dass sich das Training der ProbandInnen je nach Messzeitpunkt unterscheidet. (F(1.506,108.49) = 1676.5, p = .000, n = 73).**
+
+**ALTERNATIVE (nicht zu empfehlen)**
+```{r}
+mitmess$Zeitpunkt = as.factor(mitmess$Zeitpunkt)
+mitmess$ID = as.factor(mitmess$ID)
+```
+```{r}
+library(ez)
+anova1 <- ezANOVA(mitmess, dv = Gewicht, wid = ID, within = Zeitpunkt, detailed = TRUE)
+anova1
+```
+
+```{r}
+df1 <- anova1$ANOVA$DFn[2]*anova1$`Sphericity Corrections`$GGe
+df1
+```
+```{r}
+df2 <- anova1$ANOVA$DFd[2]*anova1$`Sphericity Corrections`$GGe
+df2
+```
+##	Post-hoc-Tests
+```{r}
+pairwise.t.test(mitmess$Gewicht, 
+                mitmess$Zeitpunkt, 
+                p.adjust.method = "none", 
+                paired = TRUE, 
+                data = mitmess)
+```
+Es wird ersichtlich, dass alle vier Messzeitpunkt sich signifikant unterscheiden(p < .008). Daher lassen sich für eigenständige Gruppen bilden. Diese vier Gruppen sind generalisierbar.
+
+##	Profildiagramm
+```{r}
+library(ggplot2)
+ggplot(mitmess, aes(x=Zeitpunkt, y=Gewicht, group=1))+
+  stat_summary(fun = mean, geom="point", size=3)+
+  stat_summary(fun = mean, geom="line")+
+  stat_summary(fun.data = mean_cl_normal, geom="errorbar",width=.2, size=.25)+
+  labs(x="Zeitpunkt", y="Gewicht in kg")+
+  theme_classic()
+```
+Ea zeigt sich, dass die Gewichtsreduzierung mithilfe des Training erfolgreich ist.
+
+##	Berechnung der Effektstärke
+
+**Das partielle Eta-Quadrat**
+```{r}
+sprintf("Partielle Eta-Quadrat für 'Zeitpunkt': eta= %.4f", out6a$pes[2])
+```
+Im vorliegenden Beispiel beträgt das partielle Eta-Quadrat .9588. Das heisst, es wird 95,88% der Variation der Gewichtsreduktion durch die Messzeite aufgeklärt.
+
+**Berechnung der Effektstärke**
+```{r}
+eff <- sqrt(out6a$pes[2]/(1-out6a$pes[2]))
+
+sprintf("Effektstärke: f= %.3f",eff)
+```
+Um zu beurteilen, wie gross dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+$$\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||f|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||f||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||f|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||f||         \\
+\text{Starker Effekt: } 0.40 &< ||f||        
+\end{align}$$
+Damit entsprechen die Effektstärken von 4.825 einem starken Effekt.
+
+##	Eine Aussage
+Eine Varianzanalyse mit Messwiederholung zeigt, dass sich das Training der ProbandInnen je nach Messzeitpunkt unterscheidet. (F(1.51,108.49) = 1676.5, p = .000, partielles η2 = .9588, n = 73). Der Mauchly-Test ergab, dass keine Sphärizität gegeben ist, weshalb die Greenhouse-Geisser-Korrektur angewendet wurde (ϵ = .50228), wodurch sich korrigierte Freiheitsgrade ergeben.
+
+Der Post-Hoc-Test zeigt, dass das Training der ProbandInnen zum Messzeitpunkt T0 (vor dem Training)(M = 85.97, SD = 8.82, n = 73) signifikant höher als zu Messzeitpunkt T1(erste Woche)(M = 81.86, SD = 9.07, n = 73) , Messzeitpunkt T2(zweite Woche) (M = 77.97, SD = 9.17, n = 73) und Messzeitpunkt T3(dritte Woche)(M = 73.02, SD = 9.39, n = 73). Die Teilnehmer haben im Schnitt 12 kg abgenommen.
+
+Es können vier Gruppen generalisiert werden. Zu Beginn des Trainings gewiegen die Teilnehmer am meistern und den vier Einheiten am wenigsten. Das Training ist ein Erfolg.
+
+Die Effektstärke liegt bei f=4.82 und entspricht damit nach Cohen (1988) einem starken Effekt.
+
+H0 kann verworfen werden, H1 angenommen.

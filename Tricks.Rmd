@@ -1,0 +1,53 @@
+---
+title: "R Tricks"
+output: html_notebook
+---
+
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("FaithfulFaces.csv")
+View(FaithfulFaces)
+```
+
+### Datensatz anzeigen
+```{r}
+head(FaithfulFaces)
+tail(FaithfulFaces)
+str(FaithfulFaces, give.attr=F) #Struktur
+sample(FaithfulFaces) #Alle Daten
+
+```
+### Spaltennamen umbennen
+**Var1:**
+```{r}
+# sehr "row"
+colnames(FaithfulFaces)[4] <- "Betrueger" # Spalte 4 - Der Name ist geändert
+
+```
+
+```{r}
+library(dplyr) #-> Rekodieren
+FaithfulFaces <- FaithfulFaces %>%
+mutate(Betrueger = factor(Betrueger, levels = c(0, 1), labels = c("Kein Betrueger", "Betrueger")))
+```
+
+```{r}
+FaithfulFaces <- FaithfulFaces %>%
+mutate(FaceSex = factor(FaceSex, levels = c("F", "M"), labels = c("Weiblich", "Männlich")))
+```
+
+### Spalte löschen
+```{r}
+FaithfulFaces$RaterSex <- NULL
+```
+
+### Subset
+```{r}
+FaithfulFaces_test <- FaithfulFaces[c(1,5:7)]
+head(FaithfulFaces_test)
+
+```
+```{r}
+list_of_values <- c("M")
+FaithfulFaces2 <- filter(FaithfulFaces, RaterSex %in%  list_of_values & faithful > 5)
+```
+

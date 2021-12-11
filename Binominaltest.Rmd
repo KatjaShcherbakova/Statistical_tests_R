@@ -1,0 +1,61 @@
+---
+title: "Aufgabe 21 - Binomialtest"
+output: html_notebook
+---
+
+### Beschreibung
+In der Gesellschaft wird heiß diskutiert, dass Frauen immer noch mehr Haushalt machen als Männer. Die sogenannte "Care - Work" ist anscheinend immer noch eine Frauen-lastige Aufgabe. Stimmt das so? Im Rahmen einer Studie soll untersucht werden, ob Frauen einen größeren Anteil übernehmen. Erste Befragungen zeigen, dass ein 70 prozentiger Anteil von Frauen übernommen wird. Design: Es wurden Frauen gefragt, wie sich die Hausarbeit bei ihnen verteilt. Die Umfrage wurde nur unter Paaren erhoben, die unter 40 Jahre alt sind und die seit mindestens 3 Jahren zusammen wohnen.
+"Ich übernehme 70 und mehr Prozent am Haushalt." Ich stimme dieser Aussage zu. Ja oder Nein?.
+Der Erwartungswert liegt bei 70%.
+
+```{r}
+library(readxl)
+Haushalt <- read_excel("Haushalt.xlsx")
+View(Haushalt)
+```
+
+### 1. Voraussetzungen des Binomialtests
++Die Variable "Frauen" ist dichotom  - "Ja", "Nein"
+
+### 2. Grundlegende Konzepte
+Der Binomialtest testet, ob die Verteilung der Häufigkeiten einer binären Variable einer erwarteten Verteilung entspricht. Zu beachten ist, dass die Variable nur dichotome (= binäre) Ausprägungen haben darf. Zum Beispiel können die Variablen folgend aussehen: 0 und 1, “Mann” und “Frau”, “klein” und “groß”, “trifft zu” und “trifft nicht zu” und so weiter. Die Fragestellung des Binomialtests wird verkürzt auf: “Unterscheidet sich die beobachtete Wahrscheinlichkeit des Auftretens von der theoretisch erwarteten Auftretenswahrscheinlichkeit?”
+
+### 3. Deskriptive Statistiken
+```{r}
+Haushalt$Frauen <- as.factor(Haushalt$Frauen)
+summary(Haushalt)
+```
+```{r}
+str(Haushalt)
+```
+
+### 4. Hypothese
++H1: Frauen stimmen der Aussage wahrscheinlicher zu. 
++H0: Frauen stimmen der Aussage wahrscheinlicher schlechter oder gleich gut zu.
+ALTERNATIVE
+
++H1: Frauen stimmen der Aussage mit einer Wahrscheinlichkeit von mehr als 70 % zu. 
++H0: Frauen stimmen der Aussage mit einer Wahrscheinlichkeit von unter oder gleich 70% zu.
+
+### 5. Kreisdiagramm
+```{r}
+mytable <- table(Haushalt$Frauen)
+pie(mytable, 
+    main= "Ich übernehme 70 und mehr Prozent am Haushalt.", 
+    col= c("deepskyblue","tomato"))
+```
+
+### 6. Ergebnisse des Binomialtests
+```{r}
+laenge<- length(Haushalt$Frauen) # Wie viel Werte hat meine Datensatz?
+sprintf("Anzahl der Datensätze;: %d", laenge)
+```
+```{r}
+binom.test(3630,n=laenge, p=0.7, alternative="greater")
+```
+
+### 7. Eine Aussage
+Die Wahrscheinlichkeit, dass Frauen den Haushalt meistern, liegt bei 67.9 %.
+P-value ist deutlich über 0,05. Das heißt, dass sich die beobachtete Häufigkeit und der erwartete Anteil NICHT signifikant unterscheiden (Binominaltest, einseitig, p = .9996, n = 5346).
+Ausgehend von diesen Daten kann H0 nicht verworfen werden.
+

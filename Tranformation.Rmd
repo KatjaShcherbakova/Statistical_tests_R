@@ -1,0 +1,367 @@
+---
+title: "t-Test unabhängig"
+output: html_notebook
+---
+
+## Benötigte Libraries
+
+```{r include=FALSE, results='hide'}
+library(ggplot2) # u.a. für Box-Plot und Histogramme, Diagramme
+library(dplyr) # u.a. für ANOVA-Test, <%<
+library(psych) # 
+library(car) # u.a. für Levene-Test
+library(Rcmdr) # Öffnet Rcommand
+library(effsize)
+library(lsr)
+library(sjstats)
+library(Rcmdr)
+library(readxl)
+```
+
+## Daten importieren
+```{r}
+library(readxl)
+Wish_Dataset <- read_excel("C:/Users/Alfa/Desktop/T-Test unabhängig/Wish_Dataset.xlsx")
+View(Wish_Dataset)
+```
+
+# t-Test für unabhängig beginnt bei Zeile 263
+
+## 1) Data Story
+
+# Exponente in ganze Zahlen umwandeln
+```{r}
+options("scipen"=100, "digits"=4)
+View(Wish_Dataset)
+```
+
+
+```{r}
+nrow(Wish_Dataset)
+```
+
+
+```{r}
+sqrt(1575)
+```
+
+```{r}
+str(Wish_Dataset)
+```
+
+
+## Normalverteilung prüfen 
+```{r}
+hist(Wish_Dataset$price, # Spalte
+     main = "Histogramm der Preise ", #Überschrift
+     xlab = "Preis", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 30 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+```{r}
+# using subset function
+Wish_Dataset <- subset(Wish_Dataset, price <= 20)
+```
+
+```{r}
+hist(Wish_Dataset$price, # Spalte
+     main = "Histogramm der Preise ", #Überschrift
+     xlab = "Preis", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 10 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+
+```{r}
+hist(Wish_Dataset$units_sold, # Spalte
+     main = "Histogramm der verkauften Anzahl ", #Überschrift
+     xlab = "Artikel", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 6 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+#Da Verkauszahlen nicht normalverteilt, wurde eine Umsatztabelle erstellt
+```{r}
+Wish_Dataset$Umsatz <- Wish_Dataset$price*Wish_Dataset$units_sold
+```
+
+
+# Verkaufszahlen in R kategoriesiert (downsizing) für Anova
+```{r}
+library(RcmdrMisc)
+
+Wish_Dataset <- within(Wish_Dataset, {
+unit_category <- Recode(units_sold, 
+'0:1000.0 ="low";1000.01 : 10000.0 = "mid"; 10000.01 : 1000000 = "high";', 
+as.factor=TRUE)
+})
+```
+
+
+```{r}
+View(Wish_Dataset)
+```
+
+# Histogramm für Rating
+```{r}
+hist(Wish_Dataset$rating, # Spalte
+     main = "Histogramm der Ratings ", #Überschrift
+     xlab = "Rating", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 30 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+Kontrolle woher die 5 Sterne kommen
+```{r}
+#Tabellle zeigt nur 5 ratings an
+head(Wish_Dataset)
+Wish_Dataset$rating <-sort(Wish_Dataset$rating, decreasing = TRUE)
+head(Wish_Dataset)
+```
+
+Da 5 sterne gleiche Bewertung haben wie die anderen wird es beibehalten
+
+# Falls wir subset nutzen wollen für 5 Sterne
+```{r}
+# using subset function
+Wish_Dataset1 <- subset(Wish_Dataset, rating <5)
+```
+
+#Betrachtung nach dem Subset
+```{r}
+hist(Wish_Dataset1$rating, # Spalte
+     main = "Histogramm der Ratings ", #Überschrift
+     xlab = "Rating", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 30 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+# Für den t-test unabhängige Stichprobe wird eine spalte mit 2 Faktorstufen benötigt
+```{r}
+library(RcmdrMisc)
+
+Wish_Dataset <- within(Wish_Dataset, {
+rating_category <- Recode(rating, 
+'0:3.5 ="low"; 3.51: 6 = "high";', 
+as.factor=TRUE)
+})
+
+View(Wish_Dataset)
+```
+
+
+# Histogramm für Umsatz
+```{r}
+hist(Wish_Dataset$Umsatz, # Spalte
+     main = "Histogramm des Umsatzes ", #Überschrift
+     xlab = "Umsatz", ylab ="Anzahl", #Achsen
+     col = "darkorchid4" ,          # Farbe
+     breaks = 10 #Faustformel sqrt(n) Wurzel aus n
+     )
+```
+
+# Betrachtung der Ausreißer
+```{r}
+boxplot(Wish_Dataset$Umsatz) # Boxplot
+# Suche der Ausreiser
+outliers <- boxplot(Wish_Dataset$Umsatz, plot=FALSE)$out 
+#Ausgabe der Ausreiser
+print(outliers)
+#Wegfilter der Ausreiser
+Wish_Dataset <- Wish_Dataset[-which(Wish_Dataset$Umsatz %in% outliers),]
+#Boxplot
+boxplot(Wish_Dataset$Umsatz)
+
+```
+
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+  Wish_Dataset %>%
+  group_by(rating_category) %>%
+  ggplot(aes(Umsatz)) + 
+    geom_histogram(aes(fill=rating_category), color="#e9ecef", alpha=0.7 ) + # Erstelle ein Histogramm, Unterteilung, Farbe + Transparenz
+   facet_wrap(~rating_category)+ # Zwei Graphen
+    theme_classic()+ #Farbschema
+    labs(x="Gruppierungen", y="Anzahl") # Beschriftung
+```
+
+Rating category ist stark rechtschief
+
+```{r}
+describeBy(Wish_Dataset$Umsatz, group= Wish_Dataset$rating_category, mat= TRUE)
+```
+
+Ausreißer, Mittelwert und Median weit auseinander
+
+# Um Mittelwert und Median näher zu einander zu bringen, wird log betrachtet
+```{r}
+logUmsatz <- log(Wish_Dataset$Umsatz)
+
+# Die Spalte "logUmsatz" wird zum Datensatz hinzugefügt
+Wish_Dataset <- cbind(Wish_Dataset, "logUmsatz" = logUmsatz)
+```
+
+# Betrachtung von logUmsatz
+```{r}
+library(dplyr)
+library(ggplot2)
+
+  Wish_Dataset %>%
+  group_by(rating_category) %>%
+  ggplot(aes(logUmsatz)) + 
+    geom_histogram(binwidth=1.5,aes(fill=rating_category), color="#e9ecef", alpha=0.7 ) + # Erstelle ein Histogramm, Unterteilung, Farbe + Transparenz
+   facet_wrap(~rating_category)+ # Zwei Graphen
+    theme_classic()+ #Farbschema
+    labs(x="Gruppierungen", y="Anzahl") # Beschriftung
+
+```
+
+logUmsatz ist normalverteilt
+
+```{r}
+describeBy(Wish_Dataset$Umsatz, group= Wish_Dataset$rating_category, mat= TRUE)
+```
+
+```{r}
+describeBy(Wish_Dataset$logUmsatz, group= Wish_Dataset$rating_category, mat= TRUE)
+```
+
+Mittelwert und Median nah beieinander im logUmsatz
+
+# log Rückgängig machen
+```{r}
+eUmsatz <- exp(Wish_Dataset$logUmsatz)
+
+# Die Spalte "eUmsatz" wird zum Datensatz hinzugefügt
+Wish_Dataset <- cbind(Wish_Dataset, "eUmsatz" = eUmsatz)
+```
+
+# Betrachtung eUmsatz
+```{r}
+library(dplyr)
+library(ggplot2)
+
+  Wish_Dataset %>%
+  group_by(rating_category) %>%
+  ggplot(aes(eUmsatz)) + 
+    geom_histogram(aes(fill=rating_category), color="#e9ecef", alpha=0.7 ) + # Erstelle ein Histogramm, Unterteilung, Farbe + Transparenz
+   facet_wrap(~rating_category)+ # Zwei Graphen
+    theme_classic()+ #Farbschema
+    labs(x="Gruppierungen", y="Anzahl") # Beschriftung
+  
+describeBy(Wish_Dataset$eUmsatz, group= Wish_Dataset$rating_category, mat= TRUE)
+```
+
+
+
+## 2)	Hypothese 
+Unterscheiden sich die Mittelwerte zweier unabhängiger Stichproben? Wenn ja, wie stark ist dieser Unterschied?
+
+H1: Es gibt einen Unterschied in den Umsatz zwischen High Rating und Low Rating MH≠ML 
+H0: Es gibt keinen Unterschied in den Umsatz zwischen High Rating und Low Rating MH=ML
+
+## 3)	Voraussetzungen des t-Tests für unabhängige Stichproben
+Die abhängige Variable ist min. intervallskaliert -> Umsatz ist metirsch und ratioskaliert
+
+Es liegt eine unabhängige Variable vor, mittels der die beiden zu vergleichenden Gruppen gebildet werden. -> Ja, High Rating und Low Rating
+
+Das untersuchte Merkmal ist in den Grundgesamtheiten der beiden Gruppen normalverteilt -> siehe Histogramm
+
+Homogenität der Varianzen: Die Gruppen kommen aus Grundgesamtheiten mit annähernd identischer Varianz -> siehe Levene-Test
+
+Die einzelnen Messwerte sind voneinander unabhängig (das Verhalten einer Versuchsperson hat keinen Einfluss auf das Verhalten einer anderen) -> ist gegeben.
+
+## 4)	Grundlegende Konzepte: Was ist t-Test für unabhängige Stichproben?
+
+Der t-Test für unabhängige Stichproben testet, ob die Mittelwerte zweier unabhängiger Stichproben verschieden sind.
+Die Fragestellung des t-Tests für unabhängige Stichproben wird oft so verkürzt:
+"Unterscheiden sich die Mittelwerte zweier unabhängiger Stichproben?"
+
+## 5)	Deskriptive Statistiken
+```{r}
+describeBy(Wish_Dataset$Umsatz, group= Wish_Dataset$rating_category, mat= TRUE)
+```
+In der Abbildung können die Mittelwerte und Standardabweichungen der Variablen Umsatz und rating abgelesen werden. 
+High Rate(M = 14606, SD = 22404, n = 1063) und Low Rate (M = 14089, SD = 20728, n = 333)
+
+## 6)	Test auf Varianzhomogenität (Levene-Test)
+
+Der t-Test für unabhängige Gruppen setzt Varianzhomogenität voraus. Liegt Varianzheterogenität vor (also unterschiedliche Varianzen), so müssen unter anderem die Freiheitsgerade des t-Wertes angepasst werden. Ob die Varianzen nun homogen (“gleich”) sind, lässt sich mit dem Levene-Test auf Varianzhomogenität prüfen.
+
+Der Levene-Test verwendet die Nullhypothese, dass sich die beiden Varianzen nicht unterscheiden. Daher bedeutet ein nicht signifikantes Ergebnis, dass sich die Varianzen nicht unterscheiden und also Varianzhomogenität vorliegt. Ist der Test signifikant, so wird von Varianzheterogenität ausgegangen.
+
+```{r}
+library(car)
+
+leveneTest(Wish_Dataset$Umsatz, Wish_Dataset$rating_category, center = mean)
+```
+
+![levene](levene.png)
+
+Also es ist zuerkennen, das Homogenität vorliegt, da der Levene-Test nicht signifikant ist. p>0.05
+
+Daher können wir von gleichen Varianzen ausgehen (F(1, 1394) = .59, p = .44). Es ist daher nicht notwendig eine Welch-Korrektur durchzuführen.
+
+Mit Welch-Korrektur: p < 0.05 => Ergebnis Signifikant –> Varianzen heterogen
+Ohne Welch-Korrektur: p > 0.05 => Ergebnis nicht Signifikant –> Varianzen homogen –> H0 mit Annahme Var1=Var2
+
+## 7)	Ergebnisse des t-Tests für unabhängige Stichproben
+
+Variante 1: ohne Welch - Korrektur
+## ungerichtete Hypothese
+```{r}
+test1<- t.test(Wish_Dataset$Umsatz~Wish_Dataset$rating_category, var.eq = TRUE, con= 0.95, alt = "two.sided")
+test1
+```
+
+Die Teststatistik betraegt t = 0.37 und der zugehörige Nicht Signifikanzwert p = 0.7.
+
+Damit ist der Unterschied nicht signifikant:
+Mittelwerte der beiden Arten des Ratings (high und low) unterscheiden sich nicht (t(1394) = 0.37, p = 0.7, n= 1396).
+
+
+## 8)	Berechnung der Effektstärke
+
+```{r}
+eff <- sqrt ((test1$statistic^2 )/ (test1$statistic^2 + test1$parameter))
+sprintf("Die Effektstärke liegt bei %.2f",eff )
+```
+
+$$\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||r|| < 0.30 \\
+\text{Schwacher bis mittlerer Effekt: } 0.30 &= ||r|| \\
+\text{Mittlerer Effekt: } 0.30 &< ||r|| < 0.50 \\
+\text{Mittlerer bis starker Effekt: }0.50 &= ||r|| \\
+\text{Starker Effekt: } 0.50 &< ||r|| 
+\end{align}$$
+
+
+
+Im Rahmen des t-Tests fuer unabhängige Stichprobe berechnen wir nach Pearson und interpretieren nach Cohen(1992).
+Damit entspricht eine Effektstaerke von .01 keinem Effekt.
+
+## 9)	Eine Aussage
+
+High rate und Low rate sind nicht signifikant in Bezug zum Umsatz p=0.7 (p>0.05). High Rate(M = 14606, SD = 22404, n = 1063) und Low Rate (M = 14089, SD = 20728, n = 333) und (t(1394) = 0.37, p = 0.7, n= 1396). Die Effektstärke liegt bei r = .01 und entspricht damit keinem Effekt nach Cohen (1992). 
+
+H1 kann nicht angenommen und H0 kann nicht verworfen werden und wird bei behalten.
+
+Diskurs:
+Umsatz hängt nicht vom rating ab.
+low und high sind nicht differenziert genug, da es zu heterogen ist.
+Es könnten andere Faktoren mehr Auskunft geben, wie beispielsweise unterschiedliche Produkte könnten mehr Auskunft geben
+Ein Faktor könnte die Wichtigkeit von Luxusprodukten im Gegensatz zu Billigprodukt.
+
+
+
+

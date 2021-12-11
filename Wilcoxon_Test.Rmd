@@ -1,0 +1,150 @@
+---
+title: "Wilcoxon-Test für abhängige Stichproben"
+output: html_notebook
+---
+### Beschreibung
+
+Studentenwohnheim "Haus der Unordnung" möchte herausfinden, ob die Toleranzschwellwert gegenüber unhygienischen Zuständen(TUZ) sich im Lauf des Studiums ändern. Daher wird der Toleranzschwellwert gegenüber unhygienischen Zuständen vor dem Einzug und drei Jahren nach dem Einzug ins Wohnheim erhoben. Je höher der TUZ-Wert, desto höher der Toleranz-Schwellwert gegen Schmutz.
+
+**Libraries**
+```{r}
+library(readxl)
+```
+
+
+**Data set**
+```{r}
+tuz <- read_excel('uebung7.xlsx')
+View(tuz)
+```
+
+```{r}
+summary(tuz)
+```
+
+```{r}
+str(tuz)
+```
+```{r}
+# umbenennen
+colnames(tuz)[2] <- 'vorher'
+colnames(tuz)[3] <- 'nachher'
+View(tuz)
+```
+
+
+```{r}
+#Spalte Differenz anlegen 
+
+differenz <- tuz$vorher - tuz$nachher 
+
+tuz <- cbind(tuz, "Differenz" = differenz)
+View(tuz)
+```
+
+### Hypothese
+
++ H1: Es gibt einen Unterschied in den Toleranzschwellwerten gegenüber unhygienischen Zuständen vor dem Einzug und drei Jahren nach dem Einzug ins Wohnheim
+
++ H01: Es gibt keinen Unterschied in den Toleranzschwellwerten gegenüber unhygienischen Zuständen vor dem Einzug und drei Jahren nach dem Einzug ins Wohnheim
+
+
+### Voraussetzungen für den Wilcoxon-Test
+
++ Die abhängige Variable ist mindestens ordinalskaliert -> Die Variable ist eigentlich metrisch.
+
++ Es liegen zwei verbundene Stichproben oder Gruppen vor, aber die verschiedenen Messwertpaare sind voneinander unabhängig - 1) Verbunden, weil wir den gleichen Probanden  vergleichen 2) die Probanden sind unabhängig
+
+### Boxplots zur Darstellung der Werte
+
+```{r}
+
+boxplot(tuz$vorher, tuz$nachher, main = "Boxplots zu den Toleranzschwellwerten",col = c("hotpink3", "deepskyblue"), names = c("(links) vorher", "(rechts) nachher"), ylab = "Toleranzschwellwert")
+```
+Es gibt keine Ausreißer. Die Medianen von den Gruppen unterscheiden sich deutlich voneinnder.
+
+### Berechnung der Mediane
+
+```{r}
+library(psych)
+zusammenfassung <-describe(tuz)
+zusammenfassung
+```
+
+Es gibt einen Unterschied in der zentralen Tendenz zwischen zwei Messzeitpunkten. Vorher - 4, nachher- 6.
+
+### Ergebnisse des Wilcoxon-Tests
+```{r}
+sprintf('Anzahl der Daten: %.f', nrow(tuz))
+```
+Die Stichprobe ist nicht genügend groß, deswegen verwenden wir die exakte Signifikanz 
+```{r}
+test<- wilcox.test(tuz$vorher, 
+                   tuz$nachher, 
+                   alternative = "two.sided",
+                   paired = TRUE, 
+                   exact = TRUE)
+test
+```
+
+**doppelt vorkommende Daten**
+
+cannot compute exact p-value with zeroes"- Da in diesem Datensatz doppelte Messwerte vorkommen, kann kein exakter p-Wert berechnet werden. Folgende zwei Funktionen können herangezogen werden zur Berechnung des p-Wertes.
+
+**Var 1: mit der Funktion:wilcox.exact**
+```{r}
+library(coin)
+#library(exactRankTests)
+
+var1test<- wilcox.exact(tuz$vorher, tuz$nachher ,alternative = "two.sided",paired = TRUE, exact = TRUE)
+var1test
+```
+
+**Var 2: mit der Funktion:wilcoxsign_test**
+```{r}
+#library(coin)
+var2test<- coin::wilcoxsign_test(tuz$vorher~ tuz$nachher,
+                                 distribution = "exact",
+                                 alternative = "two.sided", 
+                                 paired = T)
+var2test
+```
+p-value ist < 0.05, damit ist der Unterschied signifikant: <br>
+Die zentralen Tendenzen der beiden Messzeitpunkte unterscheiden sich (Wilcoxon-Test: V = 2, -2.663, 0.007812, n = 12).
+
+### Berechnung der Effektstärke
+$$r=\left| \frac{z}{\sqrt{n}} \right|$$
+
+**Der z - Wert**
+```{r}
+#var 1: Zstat1<-qnorm(var1test$p.value /2)
+#var 2: Zstat1<-var2test@statistic@teststatistic
+
+Zstat1<-var2test@statistic@teststatistic
+sprintf("Z-Wert für den WSR: %.2f", Zstat1)
+```
+**Anzahl der Daten aus dem Datensatz**
+```{r}
+nk<-nrow(wilcoxen[tuz$vorher!=tuz$nachher,])
+sprintf("Anzahl ohne Null: %.f", nk)
+```
+```{r}
+eff <-round(abs(Zstat1)/sqrt(nk),1)
+sprintf("Effektstärke: %.1f", eff)
+```
+Zur Beurteilung der Grösse des Effektes dient die Einteilung von Cohen (1988):
+$$\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||r|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||r||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||r|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||r||         \\
+\text{Starker Effekt: } 0.40 &< ||r||        
+\end{align}$$
+
+Damit entspricht die Effektstärke von .8 einem starken Effekt.
+
+### Eine Aussage
+
+Der Toleranzschwellwert gegenüber unhygienischen Zuständen vor dem Einzug (Median=4) und drei Jahren nach dem Einzug (Median=6) ins Wohnheim unterscheiden sich signifikant. ((Wilcoxon-Test: V = 2, -2.663, 0.007812, n = 12)) <br>
+Die Effektstärke nach Cohen (1988) liegt bei r = .8 und entspricht einem starken Effekt. H0 kann verworfen werden.
+

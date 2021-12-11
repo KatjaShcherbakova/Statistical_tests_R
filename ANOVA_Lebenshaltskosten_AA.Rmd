@@ -1,0 +1,335 @@
+---
+title: "ANOVA_Lebenshaltskosten"
+output: html_notebook
+---
+## packages
+
+```{r}
+library(dplyr) #-> Gruppierung und Anpassung der Daten + Umbenennung
+library(ggplot2)#-> Diagramm
+library(car)#-> Prüfung auf Varianzhomogenität
+library(sjstats) #-> partielle Eta-Quadrat
+library(lsr)# -> Eta-Quadrat  + partielle Eta-Quadrat 
+
+
+```
+## Beschreibung
+
+Es wird immer wieder behauptet, dass der Beziehungsstatus Einfluss auf die Lebenshaltskosten hat. Nach dem Motto als Single kann ich ja nicht so viel Spare die ein Päarchen. Finden Sie heraus, wie hoch die Sparquoto im Mittel ist? Und die stark dieser Effekt ist?
+
+## Daten
+
+Variable1: Beziehungsstatus bis 35 Jahre
+
+Varibale2: Sparquote
+
+
+```{r}
+library(readxl)
+uebung11 <- read_excel("uebung11.xlsx")
+#View(anovaohne)
+```
+
+
+```{r}
+#library(dplyr) -> Umbenennung
+uebung11 <- uebung11 %>%
+           rename(Beziehungsstatus    = 'Beziehungsstatus bis 35 Jahre')
+```
+
+## Roadmap
+
+1)	Hypothese 
+2)	Voraussetzungen der einfaktoriellen Varianzanalyse ohne Messwiederholung
+3)	Grundlegende Konzepte: Die Grundidee der Varianzanalyse
+4)	Boxplots 
+5)	Normalverteilung
+6)	Prüfung der Varianzhomogenität (Levene-Test)
+7)	Deskriptive Statistiken
+8)	Ergebnisse der einfaktoriellen Varianzanalyse
+9)	Post-hoc-Tests
+10)	Plot der Mittelwerte 
+11)	Berechnung der Effektstärke
+12)	Eine Aussage
+
+
+## 1)	Hypothese 
+
+H0: Es gibt keinen Mittelwertsunterschied zwischen dem Beziehungsstatus bis 35 (single, geschieden, verheiratet) und der Sparquote. <br>
+
+H1: Es gibt einen Mittelwertsunterschied zwischen dem Beziehungsstatus bis 35 (single, geschieden, verheiratet) und der Sparquote. <br>
+
+
+## 2)	Voraussetzungen der einfaktoriellen Varianzanalyse ohne Messwiederholung
+
+Die abhängige Variable ist min. intervallskaliert -> Sparquote ist metrisch. 
+
+Die unabhängige Variable (Faktor) ist kategorial (nominal- oder ordinalskaliert)-> Es gibt drei Faktorstufen(single, geschieden, verheiratet). 
+
+Die durch den Faktor gebildeten Gruppen sind unabhängig-> Die Gruppen sind unabhängig, da man entweder geschieden, single oder verheiratet ist.
+
+Die abhängige Variablen ist normalverteilt innerhalb jeder der Gruppen (Ab > 25 Probanden pro Gruppe sind Verletzungen in der Regel unproblematisch)
+-> siehe Histogramm oder QQplot
+
+Homogenität der Varianzen: Die Gruppen stammen aus Grundgesamtheiten mit annähernd identischen Varianzen der abhängigen Variablen -> siehe Levene-Test
+
+
+## 3)	Grundlegende Konzepte: Die Grundidee der Varianzanalyse
+
+Die einfaktorielle Varianzanalyse – auch "einfaktorielle ANOVA" – testet, ob sich die Mittelwerte mehrerer unabhängiger Gruppen (oder Stichproben) unterscheiden, die durch eine kategoriale unabhängige Variable definiert werden. 
+
+Diese kategoriale unabhängige Variable wird im Kontext der Varianzanalyse als "Faktor" bezeichnet. Entsprechend werden die Ausprägungen der unabhängigen Variable "Faktorstufen" genannt, wobei auch der Begriff der "Treatments" gebräuchlich ist. 
+
+Das Prinzip der Varianzanalyse besteht in der Zerlegung der Varianz der abhängigen Variable. Die Gesamtvarianz setzt sich aus der sogenannten "Varianz innerhalb der Gruppen" und der "Varianz zwischen den Gruppen" zusammen. 
+
+Die einfaktorielle ANOVA stellt eine Verallgemeinerung des t-Tests für unabhängige Stichproben für Vergleich von mehr als zwei Gruppen (oder Stichproben) dar. 
+
+Die Fragestellung der einfaktoriellen Varianzanalyse wird oft so verkürzt: "Unterscheiden sich die Mittelwerte einer unabhängigen Variable zwischen mehreren Gruppen? Welche Faktorstufen unterscheiden sich?"
+
+### 4)	Boxplots 
+```{r}
+boxplot(uebung11$Sparquote ~ uebung11$Beziehungsstatus, #erst die AV, dann die UV
+        
+        main = "Boxplots zum Vergleich", ylab = "Sparquote", xlab= "Status" , # Beschriftung des Boxplots
+        
+        col = c("lightgreen", "deepskyblue","tomato")) #  Farben 
+
+```
+
+Es liegt keine Ausreißer vor. Es gibt einen Unterschied in den zentralen Tendenz und so gut wie keine Überschneidungen der Werte. 
+
+### 5) Prüfung der Normalverteilung
+
+```{r}
+# library(dplyr) -> Gruppierung und Anpassung der Daten
+# library(ggplot2)-> Diagramm
+
+uebung11 %>%
+  group_by(Beziehungsstatus) %>% #Teilung nach UV
+  ggplot(aes(Sparquote, color=Beziehungsstatus)) + # Die Werte 
+  geom_histogram(aes(fill = Beziehungsstatus), bins = 8) + # ggplot ist ein histogramm + Teilung für die Legende + breaks/bin sind 12
+  facet_wrap(~Beziehungsstatus) + # drei Histogramm 
+  theme_classic()+ # Farbe
+  labs(x= "Beziehungsstatus bis 35 Jahre",y = "Anzahl" )#Beschriftung 
+```
+
+Es handelt sich bei der Anova um ein sehr robustes Verfahren. Daher ist die Verletztung der Normalverteilung im kleinen Rahmen vertragbar. 
+In diesem Beispiel zeigt es sich, dass die Normalverteilung bei "single" zufriedenstellend ist, allerdings bei "verheiratet" und "geschieden" eher schwierig. 
+
+Es wird entscheiden, dass eine Normalverteilung vorliegt. 
+
+### 6)	Prüfung der Varianzhomogenität (Levene-Test)
+
+Es ist zu prüfen, ob Varianzheterogenität vorliegt, sprich unterschiedliche Varianzen. Sollte das der Fall sein, müssen unter anderem die Freiheitsgerade des t-Wertes angepasst werden. Mithilfe des Levene-Test auf Varianzhomogenität kann dies prüft werden.
+
+Der Levene-Test verwendet die Nullhypothese: “Die beiden Varianzen sind nicht unterschiedlich”. Alternativhypothese ist somit: “Die beiden Varianzen sind unterschuiedlich”.
+
+Daher ist ein nicht signifikantes Ergebnis wie folgt zu deuten: Die Varianzen sind nicht unterschiedlich und also Varianzhomogenität liegt vor. Ist der Test signifikant, so wird von Varianzheterogenität gesprochen.
+
+
+```{r}
+# library(car)-> Prüfung auf Varianzhomogenität
+
+leveneTest(uebung11$Sparquote, uebung11$Beziehungsstatus, center = mean)
+```
+Hinweis: Zu erst die AV “Sparpote” (metrisch) und dann die UV “Beziehungsstatus” (kategorial). “center = mean” verwendet den Mittelwert. Bei Ausreißern, starken Abweichungen zwischen dem Mittelwert ist der Median “center = median” zu empfehlen.
+
+Also es ist zu erkennen, das Hotrogenität vorliegt, da der Levene-Test signifikant ist. Daher können wir von ungleichen Varianzen ausgehen (F(2, 147) =  29.889, p < .000). Es ist daher notwendig eine Welch-Korrektur durchzuführen.
+
+p < 0.05 => Ergebnis signifikant –> Varianzen heterogen -> *Welch-Korrektur*
+
+p > 0.05 => Ergebnis nicht sig. –> Varianzen homogen –> H0 mit Annahme Var1=Var2 -> *Ohne Welch-Korrektur*
+
+Die Welch-Korrektur korregiert, wie der Name schon sagt, die fehlende Homogenität der Varianzen durch die Anpassung der Freiheitsgrade und des f-empirsch-Wertes.
+
+
+### 7)	Deskriptive Statistiken
+
+```{r}
+# library(dplyr) -> Gruppierung
+uebung11 %>%
+group_by(Beziehungsstatus) %>%
+  summarize(Anzahl = n(), Mittelwert = mean(Sparquote), Median = median(Sparquote), Standardabweichung = sd(Sparquote)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+
+Es zeigt sich, dass es in den Mittelwerten einen Unterschied gibt. Deutlich mehr können "Verheiratete"(M = 11.38, SD = 2.31, n = 50) sparen als "Singles"(M = 4.88 SD = 1.10, n = 50) oder "Geschiedene"(M = -0.94, SD = 2.80, n = 50). "Geschiedene" haben sogar einen negativen Saldo.
+
+
+
+### 8)	Ergebnisse der einfaktoriellen Varianzanalyse
+
+Da wir keine Varianzhomogentät haben, ist eine Anpassung mithilfe der Welch-Korrektur notwendig. Dazu gibt es die Funktion oneway.test. Die Welch-Korrektur passt die Freiheitsgrade an.
+
+```{r}
+ANOVAmitWelch <- oneway.test(uebung11$Sparquote~ uebung11$Beziehungsstatus)
+ANOVAmitWelch
+
+
+```
+Das Gesamtmodel ist signifikant geworden (F(2,83.57) = 298.84, p < 2.2e-16). 
+
+**Hinweis:** (F(num df,denom df) = F-Value, p < p-value).
+
+
+
+
+### 9)	Post-hoc-Tests
+
+Obwohl der F -Test zeigt, dass ein Haupteffekt von Trainingsarten auf Ausdauertest besteht, muss anhand von Post-hoc-Tests geklärt werden, zwischen welchen Faktorstufen (Trainingsmethoden) signifikante Unterschiede bezüglich der Ausdauertest bestehen.
+
+Bei der Berechnung von Post-hoc-Tests wird im Prinzip für jede Kombination von zwei Mittelwerten ein t -Test durchgeführt. Die Formel zur Berechung der Anzahl der Gruppenpaare sind: 
+
+$$k = g(g-1)/2$$ 
+
+Im aktuellen Beispiel mit drei Gruppen sind dies 3 Tests. Multiple Tests sind jedoch problematisch, da der Alpha-Fehler (die fälschliche Ablehnung der Nullhypothese) mit der Anzahl der Vergleiche steigt.
+
+Wird nur ein t-Test mit einem Signifikanzlevel von .05 durchgeführt, so beträgt die Wahrscheinlichkeit des Nicht-Eintreffens des Alpha-Fehlers 95 Prozent. Werden jedoch sechs solcher Paarvergleiche vorgenommen, so beträgt die Nicht-Eintreffens-Wahrscheinlichkeit des Alpha-Fehlers (.95)^3 = .857. Um die Wahrscheinlichkeit des Eintreffens des Alpha-Fehlers zu bestimmen, wird 1 - .857 = .1426 gerechnet. Die Wahrscheinlichkeit des Eintreffens des Alpha-Fehlers liegt somit bei 14.26 Prozent. Diese Fehlerwahrscheinlichkeit wird als “Familywise Error Rate” bezeichnet.
+
+Um dieses Problem zu beheben kann zum Beispiel die Tukey angewendet werden. Hierbei wird .05 durch die Anzahl der Paarvergleiche dividiert. Im hier aufgeführten Fall: 0.05/3 = .016.
+
+Das heisst, jeder Test wird gegen ein Niveau von .016 geprüft.
+
+RStudio rechnet das neue Nivau ein, daher können wir weiter auf 0.05 testen.
+
+
+```{r}
+library(rstatix)
+```
+
+```{r}
+uebung11 %>% 
+  games_howell_test(Sparquote ~ Beziehungsstatus)
+```
+Es gibt drei Gruppen und diese unterscheiden sich sig. (p<0.05)
+
+Der Games-Howell ist ein Post-Hoc-Test, der optimiert für hetrogene Daten ist. Daher der Levene-Test eine Verletzung der Homogenotät nahliegt, sollte in Verfahren verwendet werden, welche dieses Verletzung bei dem multiple Tests berücksichtig.
+
+### Hinweis für Frage 01 und 02
+
+```{r}
+plot(TUKEY , las=1 , col="red")
+```
+
+```{r}
+library(multcompView)
+
+```
+
+
+```{r}
+library(multcompView)
+generate_label_df <- function(TUKEY, variable){
+     Tukey.levels <- TUKEY[[variable]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+ 
+LABELS <- generate_label_df(TUKEY , "uebung11$Beziehungsstatus")
+
+table(LABELS)
+```
+
+### Hinweis für Frage 03
+
+Es wird ersichtlich, dass sich die 3 Gruppen ( single, geschieden, verheiratet) bezüglich der Sparquote signifikant unterscheiden. (p < .05)
+
+
+Es können also drei unabhängige/ generalisierbare Gruppen gebildet werden.
+
+### Hinweis: Sie sollten folgende Fragen beantworten:
+
+1. Welcher Vergleich wird signifikant und welcher nicht?
+Es wird ersichtlich, dass sich die 3 Gruppen ( single, geschieden, verheiratet) bezüglich der Sparquote signifikant unterscheiden (p < .05).
+
+2. Welche Gruppen sind unabhängig und welche nicht?
+Es gibt also drei unabhängige Gruppen .
+
+3. Optional: Sind Gruppenbildungen möglich/ sinnvoll? - Wenn ja, welche?
+Es werden drei Gruppen gebildet - kein Veränderung.
+
+
+### 10)	Plot der Mittelwerte 
+
+```{r}
+#library(ggplot2) -> Diagramm 
+
+ggplot(uebung11, aes(x=Beziehungsstatus, y=Sparquote, group=1))+ # Daten zuweisen
+  
+  stat_summary(fun.y = mean, geom="point", size=1)+# Mittelwerte 
+  stat_summary(fun.y = mean, geom="line")+
+  stat_summary(fun.data = mean_cl_normal, geom="errorbar",width=.2, size=.25)+
+  labs(x="Beziehungsstatus", y="Sparquote")+
+  theme_classic()
+```
+
+Es gibt einen Mittelwertsunterschied. 
+
+
+## Das partielle Eta-Quadrat
+
+Das partielle Eta-Quadrat (partielles η2) ist ein Mass für die Effektgrösse: Es setzt die Variation, die durch einen Faktor erklärt wird, in Bezug mit jener Variation, die nicht durch andere Faktoren im Modell erklärt wird. Das heisst, es wird ausschliesslich jene Variation betrachtet, welche nicht durch die anderen Faktoren im Modell erklärt wird. Das partielle Eta-Quadrat zeigt, welchen Anteil davon ein Faktor erklärt. Im Falle der einfaktoriellen Varianzanalyse ist das partielle Eta-Quadrat ist jener Anteil der korrigierten Gesamtvariation, der durch das Modell erklärt wird.
+
+$$
+\eta^2 =\frac{QS_{Zwischen}}\
+\eta^2_{par.} =\frac{QS_{Zwischen}}{QS_{zwischen}+QS_{innerhalb}}
+$$
+
+```{r}
+library(effectsize)
+
+ANOVA <- aov(data=uebung11, uebung11$Sparquote~uebung11$Beziehungsstatus)
+eta <- effectsize::eta_squared(ANOVA, partial = TRUE)
+
+```
+
+```{r}
+eta
+```
+
+### Hinweis: Im vorliegenden Beispiel beträgt das partielle Eta-Quadrat .92. Das heisst, es wird 92% der Variation in Ausdauertest durch Trainingsarten aufgeklärt. Das partielle Eta² wird gerundet.“90% CI” beschreibt das Konfidenzintervall für 90 %. Dieses liegt hier zwischen 89% und 93%.
+
+### 11)	Berechnung der Effektstärke
+
+
+Um die Bedeutsamkeit eines Ergebnisses zu beurteilen, werden Effektstärken berechnet.
+
+Da R das partielle Eta-Quadrat ausgibt, wird dieses hier in die Effektstärke nach Cohen (1988) umgerechnet. In diesem Fall befindet sich die Effektstärke immer zwischen 0 und unendlich.
+
+
+$$
+f=\sqrt\frac{eta^{2}}{1-eta^{2}}
+$$
+```{r}
+eff<- sqrt(eta$Eta2/(1-eta$Eta2))
+sprintf ("Die Effektstärke liegt bei:%.2f",eff)
+```
+
+Um zu beurteilen, wie gross dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||f|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||f||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||f|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||f||         \\
+\text{Starker Effekt: } 0.40 &< ||f||        
+\end{align}
+$$
+Damit entspricht eine Effektstärke von 2.32 einem starken Effekt.
+
+
+# 12)	Eine Aussage
+
+
+Die Auswahl des Beziehungsstatus hat einen signifikanten Einfluss auf die Sparquote(F(2,83.57) = 298.84, p < .000). 84.4% der Variation der Sparquote durch Beziehungsstatus aufgeklärt.Die Effektstärke nach Cohen (1988) liegt bei f = 2.32 und entspricht einem starken Effekt.
+
+Post-hoc-Tests mit Tukey zeigen, dass sich drei Gruppen von Beziehungsarten bilden lassen (alle p < .05): "Verheiratete" (M = 11.38, SD = 2.31, n = 50) haben eine höhere Sparquote als "Singles"(M = 4.88 SD = 1.10, n = 50) oder "Geschiedene"(M = -0.94, SD = 2.80, n = 50). "Geschiedene" haben sogar ein negative Saldo.
+
+Damit kann festgehalten, werden, dass alle drei Gruppen unabhängige Gruppen bilden und sich signifikant unterscheiden. "Verheiratete" haben die beste Sparquote. H0 kann verworfen werden. 
+
+
+
+

@@ -1,0 +1,149 @@
+---
+title: "t-Test für abhängige Stichproben"
+output: html_notebook
+---
+
+Eine Gruppe von 29 Teilnehmer beantworten einen ausführlichen Fragebogen zur Extraversion. Später werden die Ehepartner im Rahmen eines Fremdeinschätzungfragebogen befragt, wie extraversviert der Ehepartner ist. Es soll geprüft werden, ob die Fremd- und Selbsteinschätzung der Extraversion übereinstimmen. Bei dem Fragebogen handelt es sich um ein etablierten Extraversionsfragebogen
+
+```{r}
+ttestVER <- read.csv("~/DataAnalyse/Statistik_Alfa/ttestVER.txt", sep=";")
+View(ttestVER)
+```
+
+### 1)	Hypothese 
+
++ H1: Es gibt einen Unterschied zwischen der Selbsteinschätzung und der Fremdeinschätzung durch den Ehepartner bei der Extraversion.
+
++ H0: Es gibt keinen Unterschied zwischen der Selbsteinschätzung und der Fremdeinschätzung durch den Ehepartner bei der Extraversion
+
+### 2)	Voraussetzungen des t-Tests für abhängige Stichproben
+
++ Die AV ist min. intervallskaliert -> Ja, Extraversion ist metrisch.
+
++ Es liegen zwei verbundene Stichproben oder Gruppen vor, aber die verschiedenen Messwertpaare sind voneinander unabhängig. 1) Sie sind verbundenen durch die Ehe, 2) aber unabhängige, weil es zwei verschiedene Messpaare (A und B) sind.
+
++ Die Unterschiede zwischen den verbundenen Testwerten sind in der Grundgesamtheit normalverteilt (bei Stichproben > 30 sind Verletzungen unproblematisch)
+
+**Erzeuge neue Variable**
+```{r}
+# Differenz erstellen
+zwischen <- ttestVER$Fremdeinschaetzung - ttestVER$Selbsteinschaetzung 
+zwischen
+```
+```{r}
+# Die Spalte "Differenz" wird zum Datensatz hinzugefügt
+ttestVER <- cbind(ttestVER, "Differenz" = zwischen)
+View(ttestVER)
+```
+
+**Histogramm zur Prüfung des Normalverteilung**
+```{r}
+ttestVER$Differenz <- as.numeric(ttestVER$Differenz)
+```
+
+```{r}
+hist(ttestVER$Differenz, xlab = "Differenz zwischen Selbst- und Fremdeinschätzung der Extraversion", ylab= "Anzahl", main ="Histogramm der Differenz", breaks =6,  col = "hotpink3")
+```
+**QQ-Diagramm zur Prüfung des Normalverteilung**
+```{r}
+library(car)
+```
+
+```{r}
+qqPlot(ttestVER$Differenz, main = "QQPlot für die Var. Differenz")
+```
+
+
+```{r}
+hist(ttestVER$Differenz, xlab = "Differenz zwischen Selbst- und Fremdeinschätzung der Extraversion", ylab= "Anzahl", main ="Histogramm der Differenz", breaks =6, col = "hotpink3")
+```
+
+
+### 3)	Grundlegende Konzepte: Was ist t-Test für abhängige Stichproben?
+
+
+### 4)	Deskriptive Statistiken und Korrelation
+**Korrelation**
+
+```{r}
+#library(car)
+scatterplot(ttestVER$Fremdeinschaetzung ~ ttestVER$Selbsteinschaetzung , main = "Streudiagramm zwischen Selbst- und Fremdeinschätzung", xlab = "Selbsteinschätzung", ylab= "Fremdeinschätzung durch den Ehepartner")
+```
+```{r}
+test <- cor.test(ttestVER$Selbsteinschaetzung, ttestVER$Fremdeinschaetzung)
+test
+```
+Die Fremdeinschätzung durch den Ehepartner und die Selbsteinschätzung korrelieren positiv-linear signifikant (r = .77, p = .000, n = 29).
+
+Bei Messwiederholungen ist es möglich, dass die Daten der ersten und zweiten Erhebung (respektive eines Messwertpaars) miteinander korrelieren. Es ist plausibel, dass zwei verbundene Messungen sich ähnlich sind und dass innerhalb eines Messwertpaares eher geringere Unterschiede auftreten als zwischen den Paaren.
+
+Im R-Output wird daher eine Pearson Korrelation der beiden Messzeitpunkte ausgegeben. Für das Beispiel ergibt sich eine sehr hohe Korrelation von r = .77 (p = .000, n = 29).
+
+**Deskriptive Statistiken**
+```{r}
+library(psych)
+```
+
+```{r}
+g <- describe(ttestVER)
+g
+```
+Es zeigt sich, dass es einen Mittelwertsunterschied zwischen Fremdeinschätzung durch den Ehepartner und der Selbsteinschätzung in Punkto Extraversion gibt. Die Mittelwerte unterscheiden sich dahingehend, das die Fremdeinschätzung bei 21.79 (SD = 4.55, n= 29), wohingegen die Selbsteinschätzung bei 26.51 (SD = 5.44 ,n=29) liegt.
+
+### 5)	Ergebnisse des t-Tests für abhängige Stichproben
+```{r}
+testVER<- t.test(ttestVER$Selbsteinschaetzung, ttestVER$Fremdeinschaetzung, alternative = "two.sided", paired = TRUE, conf.level = .95)
+
+testVER
+```
+Die Teststatistik beträgt t = 7.218 und der zugehörige Signifikanzwert p = 7.402e-08. Damit ist der Unterschied signifikant: Die Mittelwerte der beiden Messzeitpunkte (Fremdeinschätzung und Selbsteinschätzung) unterscheiden sich (t(28) = 7.218, p = 7.402e-08, n= 29).
+
+### 6)	Berechnung der Effektstärke
+**Cohen und Pearson**
+$$
+r= \sqrt {\frac{t^2}{t^2+df}}
+$$
+```{r}
+eff1 <- sqrt(testVER$statistic^2 / (testVER$statistic^2 + testVER$parameter))
+
+sprintf("Effektstärke: %.4f",eff1)
+```
+Zur Beurteilung der Groesse des Effektes dient die Einteilung von Cohen (1992):
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||r|| < 0.30             \\
+\text{Schwacher bis mittlerer Effekt: } 0.30 &= ||r||      \\
+\text{Mittlerer Effekt: } 0.30 &< ||r|| < 0.50             \\
+\text{Mittlerer bis starker Effekt: }0.50 &= ||r||         \\
+\text{Starker Effekt: } 0.50 &< ||r||        
+\end{align}
+$$
+Damit entspricht eine Effektstärke von 0.8 einem starken Effekt
+
+**Hedges g**
+$$
+\rm{Hedges}\ \hat{g}=\left|\frac{\hat{\mu_1}-\hat{\mu_2}}{\hat{\sigma_{d}}}\right|
+$$
+```{r}
+diff <- testVER$estimate
+
+sed <- sd(ttestVER$Fremdeinschaetzung - ttestVER$Selbsteinschaetzung)
+
+g <- diff/sed
+
+sprintf("Effektstärke: %.4f",g)
+```
+Zur Beurteilung der Größe des Effektes:
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.20 &< ||g|| < 0.50             \\
+\text{Schwacher bis mittlerer Effekt: } 0.50 &= ||g||      \\
+\text{Mittlerer Effekt: } 0.50 &< ||g|| < 0.80             \\
+\text{Mittlerer bis starker Effekt: }0.80 &= ||g||         \\
+\text{Starker Effekt: } 0.80 &< ||g||        
+\end{align}
+$$
+Damit entspricht eine Effektstärke von 1.3 einem starken Effekt.
+
+### 7)	Eine Aussage
+Es zeigt sich, dass die Extraversionswerte sowohl von der Fremdeinschätzung als auch der Selbsteinschätzung statistisch signifikant sich unterscheiden (t(28) = 7.21, p = .000, n = 29). Die Selbsteinschätzung der Extraversion fällt höher aus (M = 26.51, SD = 5.44) als die Fremdeinschätzung durch den Ehepartner (M = 21.79, SD = 4.55). Die Effektstärke nach Cohen (1992) liegt bei r = 0.8 und entspricht damit einem starken Effekt. H0 kann verworfen werden.

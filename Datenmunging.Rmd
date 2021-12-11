@@ -1,0 +1,418 @@
+---
+output: html_notebook
+---
+
+
+![Datamunging](Data.jpg)
+
+
+
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+View(FaithfulFaces)
+```
+
+### Datensatz anzeigen 
+```{r}
+head(FaithfulFaces) #im der Rmd - ersten Daten
+tail(FaithfulFaces) #im der Rmd - letzten Daten
+str(FaithfulFaces, give.attr =F) #Struktur
+#View(FaithfulFaces) # Neuen Fenster
+sample(FaithfulFaces) # Alle Daten
+FaithfulFaces
+```
+
+
+
+###  Spaltennamen umbenennen
+
+**Var1:**
+```{r}
+# sehr "row"
+colnames(FaithfulFaces)[4] <- "Betrueger" # Spalte 4  - Der Name wird geändert 
+colnames(FaithfulFaces)[5] <- "Vertrauen" # Spalte 5  - Der Name wird geändert 
+
+```
+
+```{r}
+head(FaithfulFaces) # - ersten Daten
+```
+
+**Var2:**
+
+```{r}
+
+library(dplyr) #-> Rename
+FaithfulFaces <- FaithfulFaces %>% #pipe 
+           rename(ProbandGeschlecht      = 'RaterSex',
+                  GeschlechtTypGesicht   = 'SexDimorph')
+```
+**Hinweis:** "Rechts" der "alte Name"(immer im Hochkomma) - Links der "neue Name"  
+
+```{r}
+head(FaithfulFaces) #im der Rmd - ersten Daten
+```
+
+### Rekodieren
+
+
+```{r}
+#library(dplyr) #-> Rekodieren
+FaithfulFaces <- FaithfulFaces %>%
+  mutate(FaceSex   = factor(FaceSex, levels = c("F", "M"), labels = c("Weiblich", "Männlich")))
+```
+**Hinweis:** Zahlen ohne Hochkomma, Buchstaben mit Hochkomma
+
+
+
+```{r}
+head(FaithfulFaces) 
+```
+
+### Datensatzauswahl Fokus/Auswahl
+
+**Standardweg über FaithfulFaces$ **
+```{r}
+# Normaler Wege: FaithfulFaces$Attract
+a <- FaithfulFaces$Attract + FaithfulFaces$Faithful
+Att
+```
+
+**Der Datensatz wird steht im Fokus**
+
+```{r}
+attach(FaithfulFaces)
+# Es wird dieses Datensatz gewählt!
+a <- Attract + Faithful
+detach(FaithfulFaces)
+
+```
+
+
+### mehrfach Zuweisung
+```{r}
+a <-b<- FaithfulFaces$Attract + FaithfulFaces$Faithful
+
+```
+
+
+### Hinzufügen einer neuen Spalte
+**var 1:**
+```{r}
+ncol(FaithfulFaces)
+FaithfulFaces["neuspalte"] <- a
+ncol(FaithfulFaces)
+
+```
+
+**Var2:**
+
+```{r}
+FaithfulFaces$neuspalte <- NULL
+ncol(FaithfulFaces)
+FaithfulFaces<- cbind(FaithfulFaces, "neuspalte"= a)
+ncol(FaithfulFaces)
+```
+
+### Umgang mit NA - Missing Value 
+
+
+```{r}
+
+# Finden der NA-Werte 
+#is.na(FaithfulFaces)
+
+# wie viele NA-Werte
+sum(is.na(FaithfulFaces))
+sprintf("Anzahl der NAs: %d",sum(is.na(FaithfulFaces)) )
+
+# Auslassen der NA-Werte 
+FaithfulFaces <- na.omit(FaithfulFaces)
+
+```
+
+
+### Handisches Loeschen von Daten
+
+```{r}
+ausreiser <- boxplot(FaithfulFaces$Attract)
+ausreiser$out
+nrow(FaithfulFaces)
+# Diese Zeilen sollen entfernt werden
+drops <- c(65,63,97,163)
+
+# Zeilen loeschen
+FaithfulFaces <- FaithfulFaces[-drops,]
+nrow(FaithfulFaces)
+```
+
+
+
+
+###  Automatisches Loeschen der Ausreiser
+
+```{r}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+
+boxplot(FaithfulFaces$Attract) # Boxplot
+# Suche der Ausreiser
+outliers <- boxplot(FaithfulFaces$Attract, plot=FALSE)$out 
+#Ausgabe der Ausreiser
+print(outliers)
+#Wegfilter der Ausreiser
+FaithfulFaces <- FaithfulFaces[-which(FaithfulFaces$Attract %in% outliers),]
+#Boxplot
+boxplot(FaithfulFaces$Attract)
+
+```
+
+
+
+
+### die Reihenfolge ändern
+**Var1:**
+```{r}
+unique(FaithfulFaces$FaceSex)
+#neuordnen!
+
+FaithfulFaces$FaceSex <- factor(FaithfulFaces$FaceSex, levels=c("Männlich", "Weiblich"))  
+unique(FaithfulFaces$FaceSex)
+```
+
+**Var2:**
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+
+```
+
+```{r}
+unique(FaithfulFaces$FaceSex)
+FaithfulFaces$FaceSex <- as.character(FaithfulFaces$FaceSex)
+FaithfulFaces$FaceSex <- factor(FaithfulFaces$FaceSex, levels = unique(FaithfulFaces$FaceSex))
+unique(FaithfulFaces$FaceSex)
+```
+
+
+### Spalte löschen
+
+```{r}
+FaithfulFaces$Attract <- NULL
+
+head(FaithfulFaces)
+
+```
+
+### Downsizing - Gruppenbildung 
+
+**Var1:**
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+```
+
+```{r}
+library(RcmdrMisc)
+
+FaithfulFaces <- within(FaithfulFaces, {
+  attract_group <- Recode(Attract, 
+  '0:2.0 ="low";2.01 : 3.5 = "mid"; 3.51 : 100 = "high";', 
+  as.factor=TRUE)
+})
+
+head(FaithfulFaces)
+```
+
+
+
+**Var2:**
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+```
+
+```{r}
+#library(dplyr)
+
+FaithfulFaces$Attract<-
+  case_when((FaithfulFaces$Attract <= 2)~ 1,
+ (FaithfulFaces$Attract > 2) & (FaithfulFaces$Attract <= 3) ~ 2,
+ (FaithfulFaces$Attract > 3)                                ~ 3)
+head(FaithfulFaces)
+
+```
+
+**var3:**
+
+```{r}
+library(RcmdrMisc)
+ attract_group <- Recode(FaithfulFaces$Attract, 
+  '0:2.0 ="low";2.01 : 3.5 = "mid"; 3.51 : 100 = "high";', 
+  as.factor=TRUE)
+FaithfulFaces["attract_group"] = attract_group
+
+```
+
+###  Datenauswahl / Subsets
+**Var1:**
+```{r}
+#spalten 1 , sowie 5,6,7
+FaithfulFaces_test <- FaithfulFaces[c(1,5:7)] 
+head(FaithfulFaces_test)
+```
+
+
+
+```{r warning= FALSE, message=FALSE, echo=FALSE}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+```
+**Var2:** Filter ist eine Möglichkeit
+
+```{r}
+#Ratersex nur Männer und Attract über 3.5 und Cheater gleich 1 
+# library(dplyr)
+list_of_values <- c("M") #Objekte können ausgelagert werden. 
+FaithfulFaces1 <- filter(FaithfulFaces, RaterSex %in% list_of_values &  Attract < 3.5 & Cheater == 1 )
+```
+
+
+```{r}
+#Ratersex nur Männer und Faithful unter 6
+library(dplyr)
+list_of_values <- c("M") 
+FaithfulFaces2 <- filter(FaithfulFaces, RaterSex %in% list_of_values &  Faithful < 6)
+```
+
+**Var3:** subset 
+
+```{r}
+#Ratersex nur Frauen und Faithful über 5 , alle spalten werden angezeigt
+FaithfulFaces_w <- subset(FaithfulFaces, FaceSex == "Weiblich" & Faithful > 5)
+
+```
+
+
+```{r}
+#Ratersex nur Frauen oder Faithful über 5 , es werden nur die Spalten: Faithful,FaceSex
+FaithfulFaces_test <- subset(FaithfulFaces, FaceSex == "Weiblich" | Faithful > 5,  select=c(Faithful,FaceSex) )
+#head(FaithfulFaces_test)
+```
+```{r}
+FaithfulFaces <- read.csv("C:/Users/Alfa/Downloads/FaithfulFaces(2).csv")
+#head(FaithfulFaces)
+
+#Ratersex nur Frauen und Faithful über 5 , es werden alle  Spalten von X1 bis Faithful ausgegeben
+FaithfulFaces_test <- subset(FaithfulFaces, FaceSex == "F", select=c(X:Attract))
+head(FaithfulFaces_test)
+```
+
+
+### Objekthandling 
+
+
+```{r}
+a <- c(1,2,3,4,9) # c steht für Combine Values into a Vector or List
+print(a)
+```
+
+
+```{r}
+a[1] # Erster Wert ansteuern 
+```
+
+### If-Else - Bedingungen
+
+```{r}
+
+#Wie alt sind Sie? 
+alter <-25  
+
+if( 20 > alter ) {
+           print("Du Teenager!!! ")
+}else if (50 > alter & alter >= 20 ) {
+           print("Du wirst auch nicht mehr jünger.")
+}else{
+  print("Ich zähle die Tage bis zur Rente.")
+  }
+
+```
+
+
+
+
+### dreifacH Array. 
+```{r}
+arr  <- array(c(1:9), dim=c(3,3,4,2)) # Zeile | Spalte | Tiefe  | Wiederholung
+arr
+```
+
+
+```{r}
+arr[, , 4, 2] [3,]#Ansteuern des Wertes 
+```
+
+Schleifen
+
+# Es gibt drei Schleifenarten
+
+# 1. Schleife: repeat
+```{r}
+revar1 = 1
+
+
+repeat{
+
+          print(revar1)
+          revar1 = revar1 +2
+          
+          if (revar1 > 9)
+            break
+          
+  
+}
+```
+
+
+# 2. Schleife: While
+
+```{r}
+whilevar1=0
+
+while(whilevar1 < 15)
+{
+  
+  print(whilevar1)
+  whilevar1 = whilevar1 +2;
+  
+}
+```
+
+
+
+# 3. Schleife: for
+```{r}
+anzahl <- 5
+ende <- 10
+for (i in anzahl:ende)
+{
+  
+ #anzahl = anzahl +1;
+  print (i)
+  
+}
+
+```
+# Umstellen der Nullstellen von Exponent auf Kommazahlen
+```{r}
+ran2 <- c(1.646e-05) 
+ options("scipen"=-100, "digits"=4)
+ ran2
+
+ options("scipen"=100, "digits"=4)
+ ran2
+
+```
+
+
+
+
+
+### netter Link: https://r4ds.had.co.nz/relational-data.html
+

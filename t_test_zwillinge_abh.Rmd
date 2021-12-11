@@ -1,0 +1,163 @@
+---
+title: "t Test Abh Stichproben"
+output: html_notebook
+---
+**Beschreibung**
+Es würde eine Studie durchgeführt um zu überprüfen, ob es einen Unterschied zwischen der kognitiven Verarbeitung bei Zwillingen gibt. Dabei ist der eine Zwilling bei den biologischen Eltern aufgewachsen, während das Geschwisterkind adoptiert worden ist.
+
+```{r}
+library(car)
+library(psych)
+```
+
+```{r}
+zwillinge <- read.csv('zwillinge.csv')
+View(zwillinge)
+```
+
+
+### 1) Hypothese
++ H1: Es gibt einen Unterschied zwischen der kognitiven Verarbeitung bei Zwillingen.
+
++ H0: Es gibt keinen Unterschied zwischen der kognitiven Verarbeitung bei Zwillingen.
+
+### 2) Voraussetzungen des t-Tests für abhängige Stichproben
+
++ Die AV ist min. intervallskaliert -> Ja, IQ ist metrisch.
+
++ Es liegen zwei verbundene Stichproben oder Gruppen vor, aber die verschiedenen Messwertpaare sind voneinander unabhängig. 
+  + 1) Sie sind verbundenen als Zwillinge, 
+  + 2) aber Messwertpaare unabhängigsind, weil es zwei verschiedene Messpaare (A und B) sind.
+
++ Die Unterschiede zwischen den verbundenen Testwerten sind in der Grundgesamtheit normalverteilt (bei Stichproben > 30 sind Verletzungen unproblematisch)
+
+**Erzeuge neue Variable**
+```{r}
+# Differenz erstellen
+zwischen <- zwillinge$IQbio - zwillinge$IQfoster 
+zwischen
+```
+
+```{r}
+# Die Spalte "Differenz" wird zum Datensatz hinzugefügt
+zwillinge <- cbind(zwillinge, "Differenz" = zwischen)
+View(zwillinge)
+```
+
+**Histogramm zur Prüfung des Normalverteilung**
+```{r}
+hist(zwillinge$Differenz, xlab = "Differenz zwischen IQ der Zwillinge", ylab= "Anzahl", main ="Histogramm der Differenz", breaks =6,  col = "pink")
+```
+**qqplot**
+
+```{r}
+qqPlot(zwillinge$Differenz, main = "QQPlot für die Var. Differenz")
+```
+### 3) Grundlegende Konzepte: Was ist t-Test für abhängige Stichproben?
+Der t-Test für abhängige Stichproben überprüft, ob die Mittelwerte zweier abhängiger/gepaarter Stichproben verschieden sind.
+
+
+### 4) Deskriptive Statistiken und Korrelation
+**Korrelation**
+```{r}
+scatterplot(zwillinge$IQbio ~ zwillinge$IQfoster,
+            main = "Streudiagramm zwischen IQ der Zwillinge", 
+            xlab = "IQbio", 
+            ylab= "IQfoster")
+
+```
+
+```{r}
+test <- cor.test(zwillinge$IQbio, zwillinge$IQfoster)
+test
+```
+Pearson's correlation = 0.8819877, p-value = 1.204e-09
+a, df = 25, n= 27 --> es gibt sehr starke positiv-lineare Korrelation zwischen IQ der Zwillinge
+
+**Deskriptive Statistiken**
+
+```{r}
+g <- describe(zwillinge)
+g
+```
+
+### 5) Ergebnisse des t-Tests für abhängige Stichproben
+
+6) Berechnung der Effektstärke
+7) Eine Aussage
+
+----
+**EXTRA**
+```{r}
+library(boot)
+results <- sample(x= zwillinge$X, size = 5, replace = T)
+results
+
+before <- zwillinge$IQbio[c(results)] 
+after <- zwillinge$IQfoster [c(results)]
+
+results1 <- sample(x= zwillinge$X, size = 5, replace = T)
+
+before1 <- zwillinge$IQbio[c(results1)] 
+after1 <- zwillinge$IQfoster [c(results1)]
+
+
+results2 <- sample(x= zwillinge$X, size = 5, replace = T)
+
+before2 <- zwillinge$IQbio[c(results2)] 
+after2 <- zwillinge$IQfoster [c(results2)]
+
+```
+
+```{r}
+layout(matrix(c(1,1,2,3), 2, 2, byrow = F))
+# PLOT1
+
+plot(x = rep(1, length(before)), 
+y = before, 
+xlim = c(.5, 2.5), 
+ylim = c(60, 140),
+ylab = "IQ", 
+xlab = "Gepaarter t-Test",
+main = "Punkte", 
+xaxt = "n")
+
+
+points(x = rep(2, length(after)), y = after)
+
+
+segments(x0 = rep(1, length(before)), 
+y0 = before, 
+x1 = rep(2, length(after)), 
+y1 = after, 
+col = gray(0, .5))
+
+
+mtext(text = c("IQ-Bio", "IQ-Forster"), 
+side = 1, at = c(1, 2), line = 1)
+
+# PLOT2
+plot(x = rep(1, length(before2)), 
+y = before2, 
+xlim = c(.5, 2.5), 
+ylim = c(60, 140),
+ylab = "IQ", 
+xlab = "Gepaarter t-Test",
+main = "Punkte", 
+xaxt = "n")
+
+
+points(x = rep(2, length(after2)), y = after2)
+
+
+segments(x0 = rep(1, length(before2)), 
+y0 = before2, 
+x1 = rep(2, length(after2)), 
+y1 = after2, 
+col = gray(0, .5))
+
+
+mtext(text = c("IQ-Bio", "IQ-Forster"), 
+side = 1, at = c(1, 2), line = 1)
+```
+

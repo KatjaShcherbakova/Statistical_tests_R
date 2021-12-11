@@ -1,0 +1,64 @@
+---
+title: "Transformation der Daten"
+output: html_notebook
+---
+```{r}
+salary <- read.csv('Salary.csv', sep=';')
+head(salary)
+```
+```{r}
+par(mfrow=c(1,3)) 
+hist(salary$salary)
+hist(log(salary$salary))
+car::qqPlot(log(salary$salary))
+```
+
+```{r}
+par(mfrow=c(1,2)) 
+#hist(salary$salary)
+hist(sqrt(salary$salary))
+car::qqPlot(sqrt(salary$salary))
+```
+```{r}
+par(mfrow=c(1,2)) 
+hist(1/log(salary$salary))
+car::qqPlot(1/log(salary$salary))
+```
+```{r}
+library(bestNormalize)
+x <- salary$salary
+```
+
+```{r}
+hist(x)
+```
+## Box-Cox Powertransformation
+```{r}
+boxcox_obj <- bestNormalize::boxcox(x)
+```
+
+```{r}
+```{r}
+hist(Wish_Dataset$Umsatz)
+hist(Wish_Dataset$Umsatz, # Spalte
+main = "Histogramm des Umsatzes ", #Überschrift
+xlab = "Umsatz", ylab ="Anzahl", #Achsen
+col = "darkorchid4" , # Farbe
+breaks = 10 #Faustformel sqrt(n) Wurzel aus n
+)
+```
+
+# Betrachtung der Ausreißer
+```{r}
+boxplot(Wish_Dataset$Umsatz) # Boxplot
+# Suche der Ausreiser
+outliers <- boxplot(Wish_Dataset$Umsatz, plot=FALSE)$out 
+#Ausgabe der Ausreiser
+print(outliers)
+#Wegfilter der Ausreiser
+Wish_Dataset <- Wish_Dataset[-which(Wish_Dataset$Umsatz %in% outliers),]
+#Boxplot
+boxplot(Wish_Dataset$Umsatz)
+
+```
+

@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(agricolae)
+
+datensatz <- read.csv('tips.csv')
+head(datensatz)
+
+```
+
+
+```{r}
+library(PMCMRplus)
+fit <- aov(data=datensatz, weight ~ feed, chickwts)
+shapiro.test(residuals(fit))
+bartlett.test(weight ~ feed, chickwts)
+anova(fit)
+## also works with fitted objects of class aov
+res <- duncanTest(fit)
+summary(res)
+summaryGroup(res)
+```
+
+```{r}
+library(agricolae)
+data(sweetpotato)
+model<-aov(yield~virus,data=sweetpotato)
+out <- duncan.test(model,"virus",
+main="Yield of sweetpotato. Dealt with different virus")
+plot(out,variation="IQR")
+duncan.test(model,"virus",alpha=0.01,console=TRUE)
+# version old duncan.test()
+df<-df.residual(model)
+MSerror<-deviance(model)/df
+out <- with(sweetpotato,duncan.test(yield,virus,df,MSerror, group=TRUE))
+plot(out,horiz=TRUE,las=1)
+print(out$groups)
+```
+```{r}
+library(PMCMRplus)
+fit <- aov(data=datensatz, datensatz$total_bill ~datensatz$day)
+shapiro.test(residuals(fit))
+bartlett.test(total_bill ~ day, datensatz)
+anova(fit)
+## also works with fitted objects of class aov
+res <- duncanTest(fit)
+summary(res)
+summaryGroup(res)
+```

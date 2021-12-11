@@ -1,0 +1,742 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Übung
+
+Welchen Einfluss hat die Sportlichkeit(unsportlich vs. sportlich) und die Ernährung(Vegan, Vegetarisch, Rohkost, Mischkost) auf den Gesundheitindex gemessen durch den Hausarzt? 
+
+Gesundheitsindex: Je höher der Wert - desto "gesünder" die Person.
+
+
+# Word-Dokument - Überblick
+
+1)	Hypothese   
+2)	Voraussetzungen für die mehrfaktorielle Varianzanalyse (ohne Messwiederholung)   
+3)	Grundlegende Konzepte  
+4)	Deskriptive Statistiken + Prüfung der Voraussetzung  
+5)	Levene -Test   
+6)	Ergebnisse der mehrfaktorielle Varianzanalyse (ohne Messwiederholung)  
+7)	Post-Hoc-Test  
+8)	Berechnung der Effektstärke   
+     $$f=\sqrt\frac{\eta^{2}}{1-\eta^{2}}$$
+9)	Eine Aussage
+
+
+## Benötigte Libraries
+
+```{r include=FALSE, results='hide'}
+library(ggplot2)    # u.a. für Box-Plot und Histogramme
+library(dplyr)      # u.a. für ANOVA-Test - Gruppierung
+library(psych)      # u.a. für  die deskriptive Statistiken 
+library(car)        # u.a. für Levene-Test
+library(effectsize)    # u.a. für Eta² und Effektstärke
+```
+
+
+## Daten-Import
+```{r include=FALSE, results='hide'}
+library(readxl)
+uebung15 <- read_excel("uebung15.xlsx")
+View(uebung15)
+```
+
+
+Zwei Character/String Spalten mit Namen: 'Sportlichkeit' und 'Ernaehrung'.  
+Diese beiden Spalten besitzen (mehrfach) nur folgende Elemente:
+
+```{r}
+print("'Sportlichkeit':")
+as.character(unique(uebung15$Sportlichkeit))
+print(" - - - - - - - - - - ")
+print("'Ernaehrung':")
+as.character(unique(uebung15$Ernaehrung))
+```
+
+Für spätere bessere Plot-Darstellung: Ändern der Reihenfolge in 'Ernaehrung'
+
+```{r}
+# Ändern der Reihenfolge der Datenabfolge für "Ernaehrung" (für spätere Plot-Darstellungen interessant)
+uebung15$Ernaehrung<-factor(uebung15$Ernaehrung, 
+                                     levels=c("vegan", "Rohkost", "vegetarisch", "Mischkost")
+                                    ) 
+```
+
+```{r}
+uebung15$Ernaehrung<-factor(uebung15$Ernaehrung, 
+                                    levels=c("Mischkost", "vegetarisch", "Rohkost", "vegan")
+                                    ) 
+```
+
+
+# Hypothesen
+
+### Haupteffekt A - 'Sportlichkeit'
+H0: Es gibt keinen Unterschied zwischen der Sportlichkeit und dem Gesundheitsindex.  
+H1: Es gibt einen Unterschied zwischen der Sportlichkeit und dem Gesundheitsindex.  
+
+### Haupteffekt B - 'Ernaehrung'
+H0: Es gibt keinen  Unterschied zwischen der Ernährung und dem Gesundheitszustand.  
+H1: Es gibt einen Unterschied zwischen der Ernährung und dem Gesundheitszustand.    
+
+### Interaktion A x B:
+H0: Es gibt keinen  Unterschied im Mittelwert zwischen der Interaktion von Sportlichkeit und der Ernährung auf den Gesundheitsindex.  
+H1: Es gibt einen Unterschied im Mittelwert zwischen der Interaktion von Sportlichkeit und der Ernährung auf den Gesundheitsindex.  
+
+
+
+# Voraussetzungen
+
++ Die abhängige Variable ist min. intervallskaliert  
+Die abhängige Variable "Gesundheitsindex" ist intervallskaliert - metrisch.  
+
++ Die unabhängigen Variablen (Faktoren) sind kategorial (nominal- oder ordinalskaliert)
+Die unabhängigen Variablen (Faktoren) "Sportlichkeit" und "Ernaehrung" sind kategorial (nominal- oder ordinalskaliert).  
+
++	Die durch die Faktoren gebildeten Gruppen sind unabhängig
+Die Unabhängigkeit ist gegeben, da die teilnehmenden Personen nichts miteinander zu tun haben bzw. aufeinander keinen Einfluss nehmen.
+
++	Die abhängige Variable ist normalverteilt innerhalb jeder der Gruppen.  
+Ab 25 Probanden pro Gruppe sind Verletzungen dieser Voraussetzung unproblematisch.  
+--> Siehe Histogramme
+
++	Homogenität der Varianzen: Die Gruppen stammen aus Grundgesamtheiten mit annähernd identischen Varianzen der abhängigen Variablen.   
+--> siehe Levene-Test (siehe unten)
+
+
+## Mit Histogrammen auf Normalverteilung prüfen
+
+Die abhängige Variablen ist normalverteilt innerhalb jeder der Gruppen.   
+Ab 25 Probanden pro Gruppe sind Verletzungen dieser Voraussetzung unproblematisch.
+
+### Histogramme: Gesamt-Einfluss von Sportlichkeit bzw. Ernährung auf den Gesundheitsindex
+
+```{r}
+ggplot(uebung15, 
+       aes(Gesundheitsindex, 
+           color=Ernaehrung
+           )
+       ) +
+  geom_histogram(binwidth=1,
+                 aes(fill = Ernaehrung), 
+                 bins = 10,
+                 show.legend = TRUE
+                 ) +
+  geom_density(aes(y = ..count..*5, 
+                   fill = Ernaehrung
+                   ), 
+               alpha=0.2, 
+               colour = "black",
+               size = 0.5,
+               show.legend = TRUE
+               ) +
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        plot.background = element_rect(fill = "moccasin")
+        )+
+  scale_fill_discrete(name = "Untersuchte Ernährungs-Arten",
+                      breaks = c("vegan", "Rohkost", "vegetarisch", "Mischkost"),
+                      labels = c("vegane Ernährung", "Rohkost-Ernährung", "vegetarische Ernährung", "Mischkost-Ernährung"),
+                      aesthetics = "fill"
+                      )+
+  guides(color = FALSE
+         ) + 
+  facet_wrap(Sportlichkeit ~ Ernaehrung, 
+             ncol = 2
+             ) + 
+  labs(title = "Histogramme",
+       subtitle = "vegan - Rohkost - vegetarisch - Mischkost",
+       x = "Gesundheitsindex",
+       y = "Anzahl"
+       ) 
+```
+
+Ab 25 Teilnehmer pro Gruppe ist das Testverfahren robust.  
+Dies gilt auch hier, da in den jeweiligen Gruppen immer jeweils 25 Teilnehmer vorhanden sind.  
+Für die 8 Gruppen (unsportlich/sportlich, Rohkost/vegan/vegetarisch/Mischkost) sind es jew. 25 Teilnehmer/Personen.
+
+
+**QQ-Plot zum Zeigen der Normalverteilung wäre auch nicht schlecht.**
+
+
+### Boxplot 
+
+Boxplot hier nur zur Info (bessere Visualisierung der Gesamt-Zusammenhänge).
+
+```{r}
+ggplot(uebung15, 
+       aes(x = Ernaehrung, 
+           y = Gesundheitsindex, 
+           fill=factor(Sportlichkeit))
+       ) +
+  geom_boxplot() +
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )+
+  labs(x="Ernährung", y="Gesundheitsindex", fill = "Sportlichkeit")
+```
+
+```{r}
+ggplot(uebung15, 
+       aes(x = Sportlichkeit, 
+           y = Gesundheitsindex, 
+           fill=factor(Ernaehrung))
+       ) +
+  geom_boxplot() +
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )+
+  labs(x="Sportlichkeit", y="Gesundheitsindex", fill = "Ernaehrung")
+```
+
+
+```{r}
+ggplot(uebung15, 
+       aes(x = Sportlichkeit, 
+           y = Gesundheitsindex, 
+           fill=factor(Sportlichkeit))
+       ) +
+  geom_boxplot() +
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )+
+  labs(x="Sportlichkeit", y="Gesundheitsindex", fill = "Sportlichkeit")
+```
+
+```{r}
+ggplot(uebung15, 
+       aes(x = Ernaehrung, 
+           y = Gesundheitsindex, 
+           fill=factor(Ernaehrung))
+       ) +
+  geom_boxplot() +
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "gray", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )+
+  labs(x="Ernaehrung", y="Gesundheitsindex", fill = "Ernaehrung")
+```
+
+Es sind keine Ausreißer zu beobachten.
+
+
+
+# Deskriptive Statistiken
+
+### Einfluss der Ernährung auf den Gesundheitsindex
+
+```{r}
+uebung15 %>%
+  group_by(Ernaehrung) %>%
+  summarize(Anzahl = n(), 
+            Mittelwert = mean(Gesundheitsindex), 
+            Median = median(Gesundheitsindex), 
+            Standardabweichung = sd(Gesundheitsindex)
+            ) %>%
+  mutate_if(is.numeric, round, 1)
+```
+Der Einfluss der Ernährung auf den Gesundheitsindex ist wiefolgt zu sehen:
+
++ Bei veganer       Ernährung ist der Einfluss auf den Gesundheitsindex am geringsten         (MW = 20.1 , SD = 14.0, n = 50).  
++ Bei Rohkost-      Ernährung ist der Einfluss auf den Gesundheitsindex am schon etwas höher  (MW = 27.6 , SD = 11.4, n = 50).  
++ Bei vegetarischer Ernährung ist der Einfluss auf den Gesundheitsindex am schon relativ hoch (MW = 61.4 , SD = 18.3, n = 50).  
++ Bei Mischkost-    Ernährung ist der Einfluss auf den Gesundheitsindex am höchsten           (MW = 78.5 , SD =  5.8, n = 50).  
+
+
+### Einfluss der Sportlichkeit auf den Gesundheitsindex
+
+```{r}
+uebung15 %>%
+  group_by(Sportlichkeit) %>%
+  summarize(Anzahl = n(), 
+            Mittelwert = mean(Gesundheitsindex), 
+            Median = median(Gesundheitsindex), 
+            Standardabweichung = sd(Gesundheitsindex)
+            ) %>%
+  mutate_if(is.numeric, round, 1)
+```
+Der Einfluss der Sportlichkeit auf den Gesundheitsindex ist wiefolgt zu sehen:
+
++ Bei unsportlichen Personen ist der Einfluss auf den Gesundheitsindex am geringsten (MW = 31.0 , SD = 26.7, n = 100).  
++ Bei sportlichen   Personen ist der Einfluss auf den Gesundheitsindex am höchsten   (MW = 51.5 , SD = 24.6, n = 100).  
+
+
+
+
+
+### Interaktion von Ernährung und Sportlichkeit bezüglich des Gesundheitsindexes
+
+```{r}
+ a <- uebung15 %>%
+  group_by(Sportlichkeit, Ernaehrung) %>%
+  summarize(Anzahl = n(), 
+            Mittelwert = mean(Gesundheitsindex), 
+            Median = median(Gesundheitsindex), 
+            Standardabweichung = sd(Gesundheitsindex)
+            ) %>%
+  mutate_if(is.numeric, round, 1)
+a
+```
+
+
+
+```{r}
+
+arrange(a, desc(a$Mittelwert))
+```
+
+
+
+
+
+
+
+```{r}
+
+mittel <-tapply(uebung15$Gesundheitsindex, list(uebung15$Ernaehrung, uebung15$Sportlichkeit), mean, na.rm=TRUE)
+mittel
+```
+
+Man kann deutlich erkennen, dass die Sportlichkeit in jeder Ernährungs-Gruppe einen postiven Einfluss auf den Gesundheitsindex besitzt.  
+
+Der Einfluss der Ernährung auf den Gesundheitsindex ist auch deutlich, insbesondere bei den Ernährungsformen "vegan", "Rohkost" und "vegetarisch". Bei der Ernährungsform "Mischkost" ist der Einfluss am geringsten.
+
+
+### Profildiagramm
+
+```{r}
+
+library(htmltools)
+
+ggplot(uebung15, 
+       aes(x=Ernaehrung, 
+           y=Gesundheitsindex,
+           group = Sportlichkeit,
+           color = Sportlichkeit,
+           aesthetics = "fill" 
+           )
+       )+
+  stat_summary(fun = mean, 
+               geom="point", 
+               size=3
+               )+
+  stat_summary(fun = mean, 
+               geom="line",
+               size= 1.5
+               )+
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="errorbar",
+               width=0.2, 
+               size=1
+               )+
+  stat_summary(aes(label=round(..y..,2)), 
+               fun ='mean', 
+               geom="text", 
+               size=4,
+               position = position_nudge(x = -0.25, y = 1.75)
+               )+
+  labs(title = "Die Sportlichkeit in Abhängigkeit von der Ernährung",
+       x="Ernährung", 
+       y="Gesundheitsindex")+
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "black", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )
+```
+
+```{r}
+
+
+library(htmltools)
+
+ggplot(uebung15, 
+       aes(x=Sportlichkeit, 
+           y=Gesundheitsindex,
+           group = Ernaehrung,
+           color = Ernaehrung,
+           
+           aesthetics = "fill" 
+           )
+       )+
+  stat_summary(fun = mean, 
+               geom="point", 
+               size=3
+               )+
+  stat_summary(fun = mean, 
+               geom="line",
+               size=1.5
+               )+
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="errorbar",
+               width=0.2, 
+               size=1
+               )+
+  stat_summary(aes(label=round(..y..,2)), 
+               fun.y='mean', 
+               geom="text", 
+               size=4,
+               position = position_nudge(x = -0.25, y = 1.75)
+               )+
+  labs(title = "Die Ernährung in Abhängigkeit von der Sportlichkeit",
+       x="Ernährung", 
+       y="Gesundheitsindex")+
+  theme(panel.background = element_rect(size = 0.5, fill = "gray91", colour = "black", linetype='solid'),
+        panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "darkgray"),
+        panel.grid.minor = element_line(size = 0.5, linetype = 'solid', colour = "gray"),
+        )
+```
+
+
+
+
+Aus dem Profildiagramm, zusammen mit den darüber aufgeführten Tabellen ...
+
+
+
+# Levene-Test (Homogenität der Varianzen prüfen)
+Die Gruppen stammen aus Grundgesamtheiten mit annähernd identischen Varianzen der abhängigen Variablen (siehe Levene-Test).
+
+
+```{r}
+library(car)
+```
+
+```{r}
+leveneTest(data = uebung15, 
+           Gesundheitsindex ~ Ernaehrung*Sportlichkeit,     # Das "*" kennzeichnet hier die Interaktion.
+           center = "mean"
+           )
+```
+
+Im vorliegenden Beispiel ist der Levene-Test signifikant ( F(7 , 192) = 20.563, p<2.2e-16 < 0.05), so dass   
+von Varianzheterogenität ausgegangen werden kann.  
+Da die Varianzen somit leider nicht gleich sind, daher ist es zu empfehlen eine Korrektur Mithilfe des Welch-Tests durchzuführen. 
+
+
+# Ergebnisse der mehrfaktoriellen Varianzanalyse (ohne Messwiederholung)
+
+
+
+```{r}
+mehrAnova1 <- lm(Gesundheitsindex ~ Sportlichkeit*Ernaehrung, data = uebung15)
+myAnova <- Anova(mehrAnova1 , type = 3)
+myAnova
+# a <- Anova(mehrAnova1, type = 3, white.adjust= T)
+# a
+
+#library(nlme)
+#library(car)
+#model1 <- gls(Gesundheitsindex ~ Ernaehrung + Sportlichkeit + Ernaehrung:Sportlichkeit, data=uebung15, weights=varIdent(form=~1|Ernaehrung*Sportlichkeit))
+
+
+#summary(model1)
+```
+
+
+Es liegt eine Verletzung der Varianzhomogenität vor. Daher sollte eigentlich ein robusterer Test, welcher die Varianzheterogenität direkt berücksichtigt, genutzt werden (Welch-Korrektur). Allerdings bieten sich hier keine weitgehend akzeptierten Verfahren an. Zur Kontrolle des Ergebnisses wird die Funktion "oneway.test" verwendet. 
+
+
+
+```{r}
+zwischen <-933   +52399   +3902   
+zwischen
+innerhalb <-10113 
+```
+
+
+```{r}
+172890    - (zwischen + innerhalb)
+```
+
+
+
+# Zur Kontrolle des Ergebnisse der mehrfaktoriellen Varianzanalyse (ohne Messwiederholung)
+
+#### Einfluss der Sportlichkeit
+```{r}
+MhrfANOVA_sportlichkeit_welch <- oneway.test(data = uebung15, 
+                                             Gesundheitsindex ~ Sportlichkeit, 
+                                             var.equal = FALSE
+                                             )
+MhrfANOVA_sportlichkeit_welch
+```
+Für den Faktor Sportlichkeit wird ein klarer Effekt ersichtlich.  
+(F(1, 196.67) = 30.532, p=1.033e-07 < 0.05)
+
+
+#### Einfluss der Ernährung
+```{r}
+Ernaehrung_welch <- oneway.test(data = uebung15, 
+                                          Gesundheitsindex ~ Ernaehrung, 
+                                          var.equal = FALSE
+                                          )
+Ernaehrung_welch
+```
+Bezüglich der Ernährung ist ebenfalls ein klarer Effekt zu erkennen.  
+(F(3,99.02) = 436.71, p<2.2e-16 < 0.05)  
+
+Das bedeutet, dass der Gesundheits-Index der teilnehmenden Personen zum einen von der individuellen Sportlichkeit aber auch von der jeweiligen Ernährung abhängt.
+
+
+#### Einfluss der Interaktion von Sportlichkeit und Ernährung
+```{r}
+AXB_welch <- oneway.test(data = uebung15, 
+                                           Gesundheitsindex ~ Ernaehrung*Sportlichkeit, 
+                                           var.equal = FALSE
+                                           )
+AXB_welch 
+```
+
+Der Interaktionsterm von Ernährung und Sportlichkeit auf den Gesundheitsindex ist somit signifikant.
+(F(7,80.776) = 1477.3, p<2.2e-16 < 0.05)  
+
+Der Gesundheitsindex wird durch die Interaktion von Sportlichkeit und Ernährung beeinflusst.
+
+
+
+# Post-Hoc-Test
+
+
+```{r}
+uebung15_PostHoc <- aov(data = uebung15,
+                                 Gesundheitsindex ~ Sportlichkeit*Ernaehrung
+                                 ) 
+uebung15_TukeyHSD_PostHoc = TukeyHSD(uebung15_PostHoc)
+uebung15_TukeyHSD_PostHoc
+
+
+```
+
+Es sollte folgende vier Aspekte geklärt werden: 
+
++  welche Kombination wird sig. und welche nicht? 
++  Generalisierung / Unabhängigkeit der Gruppen
++  Gruppenbildung
++  Interaktion in der Kombination
+
+
+Kombi: 'Sportlichkeit' 
+
++ Hier ist der Unterschied zwischen 'sportlich' und 'unsportlich' aus der Gruppe 'Sportlichkeit' signifikant (p < 0.05).
+
+Kombi: 'Ernaehrung':  
+
++ Hier sind alle Unterschied signifikant (p < 0.05).  
+
+Kombi: Interaktion 'Sportlichkeit:Ernaehrung':  
+
++ Hier fast alle Unterschiede, bis auf zwei, signifikant (p < 0.05).  
++ 'sportlich:Rohkost-sportlich:vegan'           ist nicht siginifikant (p=0.9997).
++ 'unsportlich:Mischkost-sportlich:vegetarisch' ist nicht siginifikant (p=0.9878).
+
+
+Damit ist der Einfluss beider Größen, der Ernährung und der Sportlichkeit sowie der Interaktion von Ernährung und Sportlichkeit, auf den Gesundheitsindex, bis auf die beiden oben genannten Ausnahmen, signifikant.
+
+
+
+
+Tabelle | sportlich | unsportlich |
+----------------------------------------|
+vegan   | -         | +            |
+----------------------------------------|
+Rohkost | -         | +            |
+----------------------------------------|
+vegetarisch | --     | +          |
+----------------------------------------|
+Mischkost | +       | --              |
+----------------------------------------|
+
+
+
+```{r}
+Ernaehrung <- c("vegan", "Rohkost", "vegetarisch", "Mischkost")
+sportlich <- c("-", "-", "--", "+")
+unsportlich <-c("+", "+", "+", "--")
+Tabelle1 <- data.frame(Ernaehrung, sportlich, unsportlich)
+colnames(Tabelle1) <-c("Ernaehrung", "sportlich", "unsportlich")
+Tabelle1
+```
+Vier Gruppen sind generalisierbar (+). 
+
+*Es könnten acht Gruppen oder vier Gruppen gebildet werden .*
+
+
+
+```{r}
+pairwise.t.test(uebung15$Gesundheitsindex, uebung15$Sportlichkeit, data=uebung15, pool.sd=T,var.equal=FALSE, p.adjust.method   = "bonf")
+
+
+pairwise.t.test(uebung15$Gesundheitsindex, uebung15$Ernaehrung, data=uebung15, pool.sd=T,var.equal=F,p.adjust.method   = "bonf")
+
+
+interaktion=paste(uebung15$Sportlichkeit, uebung15$Ernaehrung, sep=".") 
+pairwise.t.test(uebung15$Gesundheitsindex, interaktion, data=uebung15, var.equal=FALSE,p.adjust.method = "bonf")
+
+
+```
+
+
+
+
+```{r}
+library(PMCMRplus)
+interaktion=paste(uebung15$Sportlichkeit, uebung15$Ernaehrung, sep=".")
+uebung15["interaktion"] <-interaktion
+fit <- aov( Gesundheitsindex ~ as.factor(interaktion), uebung15) 
+res <- gamesHowellTest(fit)
+summary(res)
+uebung15$interaktion <-NULL
+
+```
+
+
+
+
+
+
+# Berechnung der Effektstärke
+
+
+Das partielle Eta-Quadrat (partielles η2) ist in Abbildung ausgegeben. Es ist ein Mass für die Effektgrösse: Es setzt die Variation, die durch einen Faktor erklärt wird, in Bezug mit jener Variation, die nicht durch andere Faktoren im Modell erklärt wird. Das heisst, es wird ausschliesslich jene Variation betrachtet, welche nicht durch die anderen Faktoren im Modell erklärt wird. Das partielle Eta-Quadrat zeigt, welchen Anteil davon ein Faktor erklärt:
+
+
+$$
+\eta²_{parA} = \frac{QS_A}{QS_A+QS_{inn}}
+$$
+
+$$
+\eta²_{parB} = \frac{QS_B}{QS_B+QS_{inn}}
+$$
+
+
+
+$$
+\eta²_{parAxB} = \frac{QS_{AxB}}{QS_{AxB}+QS_{inn}}
+$$
+
+
+#### Berechnung der ETA-Matrix für den Einfluss der Einzel-Effkete und des Interaktions-Effekts
+```{r}
+mehrAnova1 <- lm(Gesundheitsindex ~ Sportlichkeit*Ernaehrung, data = uebung15)
+eta <- effectsize::eta_squared(mehrAnova1)
+eta
+```
+
+Für die Ernährung beträgt das partielle Eta-Quadrat .92. Das heisst, das der Ernährungsanteil 92% derjenigen Fehlervariation, die das Modell hätte, wäre die Ernährung nicht im Modell, erklärt. 
+
+Für die Sportlichkeit beträgt das partielle Eta-Quadrat .665. Das heisst, das der Anteil der Sportlichkeit 66.5% derjenigen Fehlervariation, die das Modell hätte, wäre die Sportlichkeit nicht im Modell, erklärt. 
+
+
+Das partielle Eta-Quadrat der Interaktion beträgt .278 und erklärt daher 27.8 % der ohne die Interaktion ungeklärten Variation.
+
+
+## Effektstärken
+
+
+$$f=\sqrt\frac{\eta^{2}}{1-\eta^{2}}=\sqrt\frac{eta^{2}}{1-eta^{2}}$$
+
+
+Um zu beurteilen, wie groß dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||f|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||f||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||f|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||f||         \\
+\text{Starker Effekt: } 0.40 &< ||f||        
+\end{align}
+$$
+
+### Effektstärke für den Einfluss der Sportlichkeit
+```{r}
+eff_Sportlichkeit <- sqrt(eta$Eta2_partial[1]/(1-eta$Eta2_partial[1]))
+sprintf("Effektstärke für den Einfluss der Sportlichkeit = %.4f", eff_Sportlichkeit)
+```
+Nach Cohen (1988) handelt es sich bei dem Einfluss der Sportlichkeit auf den Gesundheitsindex um einen starken Effekt (f = 1.4).
+
+
+### Effektstärke für den Einfluss der Ernährung 
+```{r}
+eff_Ernaehrung <- sqrt(eta$Eta2_partial[2]/(1-eta$Eta2_partial[2]))
+sprintf("Effektstärke für den Einfluss der Ernährung  = %.4f", eff_Ernaehrung)
+```
+Nach Cohen (1988) handelt es sich bei dem Einfluss der Sportlichkeit auf den Gesundheitsindex um einen starken Effekt (f = 3.3).
+
+
+### Effektstärke für den Einfluss der Interaktion von Geschlecht und Alkohol 
+```{r}
+eff_Sportlichkeit_x_Ernaehrung_AxB <- sqrt(eta$Eta2_partial[3]/(1-eta$Eta2_partial[3]))
+sprintf("Effektstärke für den Einfluss der Interaktion von Geschlecht und Alkohol = %.4f", eff_Sportlichkeit_x_Ernaehrung_AxB)
+```
+Nach Cohen (1988) handelt es sich bei dem Einfluss der Interaktion von Sportlichkeit mit der Ernährung im Bezug auf  
+den Gesundheitsindex um einen starken Effekt (f = 0.62).
+
+
+
+# Aussage 
+
+### Ergebnis der Hypothesen-Prüfung
+
+Es zeigt sich, dass es einen Einfluss der Sportlichkeit auf den Gesundheitsindex gibt (F(1.00, 192)=17.715, p =.000).H0 für den Haupteffekt A wird verworfen.
+
+Je nach Ernährungsart gibt es einen Einfluss auf den Gesundheitsindex (F(3.00, 192)= 331.59, p = .000). H0 für den Haupteffekt B wird verworfen.
+
+Der Einfluss des Interaktionsterms von Ernährungsart und Sportlichkeit auf den Gesundheitsindex ist signifikant (F(3, 192)=24.691, p = .000). Der Effekt von der Sportlichkeit hängt demnach zu einem gewissen Teil von der Ernährung ab und anders herum.  
+H0 für den Interaktion AxB wird verworfen.
+
+
+ 
+### Ergebnis des Post-Hoc-Tests
+
+Tukey-PostHoc-Tests zeigt, dass sich alle Gruppen für Ernaehrung signifikant unterscheiden: 
+Mischkost  (M=78.84 SD=5.78, n=50), 
+Rohkost    (M=27.56 SD=11.4, n=50), 
+vegan      (M=20.10 SD=13.96 , n=50) und 
+vegetarisch(M=61.36 SD=18.34, n=50). 
+
+Auch alle Gruppen für Sportlichekit: sportlich (M=56.98 SD=24.56, n=100) und unsportlich (M=36.95 SD=26.67,n=100).
+
+
+**Zudem zeigt sich eine signifikante Interaktion von Sportlichkeit und Ernährung auf den Gesundheitsindex.**  
+**Dies weist darauf hin, dass sich die Sportlichkeit je nach Ernährung unterschiedlich auswirkt und umgekehrt.**
+
+Bei einer Rohkosternährung war der Gesundheitindex höher unter sportlichen Verhalten (M = 34.72, SD = 11.52, n = 50) 
+als jener bei unsportlichen verhalten (M = 20.40 SD = 5.27), dieser Unterschied konnte im Post-Hoc bestätigt werden. 
+
+Bei einer Mischkosternährung war der Gesundheitindex höher unter sportlichen Verhalten (M = 83.16, SD = 4.13, n = 50) 
+als jener bei unsportlichen verhalten (M = 74.52, SD = 3.50), dieser Unterschied konnte im Post-Hoc bestätigt werden. 
+
+Bei einer vegetarischen Ernährung war der Gesundheitindex höher unter sportlichen Verhalten (M = 76.32, SD = 12.19, n = 50) 
+als jener bei unsportlichen verhalten (M = 46.40, SD = 8.48), dieser Unterschied konnte im Post-Hoc bestätigt werden. 
+
+Bei einer veganen Ernährung war der Gesundheitindex höher unter sportlichen Verhalten (M = 33.72, SD = 2.41, n = 50) 
+als jener bei unsportlichen verhalten ( M = 6.48, SD = 2.33), dieser Unterschied konnte im Post-Hoc bestätigt werden. 
+
+Für das vorliegende Beispiel wird ersichtlich, dass sich sportliches Verhalten mit Rohkosternährung und sportliches Verhalten mit veganer Ernährung bezüglich des Gesundheitsindexmittelwertes nicht signifikant unterscheiden (p =  0.9).  
+Außerdem kann kein Unterschied für sportliches Verhalten mit vegetarischer Ernährung und unsportlichen Verhalten mit Mischkost festgestellt werden (p =  0.9).  
+
+Vier Gruppen sind generalisierbar. *Es könnten acht Gruppen oder vier Gruppen gebildet werden .*
+
+
+
+### Ergebnis für die Effektstärken
+
+Die Effektstärken sind sowohl  
+
++ für den Haupteffekt der Sportlichkeit (f = 1.408) und Ernährung (f = 3.387) als auch  
++ für     die Interaktion (f = 0.6221)  
+
+nach Cohen (1988) ein starker Effekt.
+
+
+
+
+
+

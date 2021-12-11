@@ -1,0 +1,232 @@
+---
+title: "ANOVA Einfaktoriellen Varianzanalyse ohne Messwiederholung"
+output: html_notebook
+---
+**Libraries**
+```{r}
+library(ggplot2)
+library(dplyr)
+library(car)
+library(rstatix)
+library(effectsize)
+library(multcompView)
+```
+
+**Dataset**
+```{r}
+salary <- read.csv('Salary.csv', sep = ';')
+head(salary)
+```
+**UV** -> bilden drei Gruppen
+```{r}
+salary$rank <- as.factor(salary$rank)
+summary(salary$rank)
+```
+**AV** -> salary
+```{r}
+summary(salary$salary)
+```
+
+## Roadmap
+
+1)	Hypothese 
+2)	Voraussetzungen der einfaktoriellen Varianzanalyse ohne Messwiederholung
+3)	Grundlegende Konzepte: Die Grundidee der Varianzanalyse
+4)	Boxplots 
+5)	Normalverteilung
+6)	Prüfung der Varianzhomogenität (Levene-Test)
+7)	Deskriptive Statistiken
+8)	Ergebnisse der einfaktoriellen Varianzanalyse
+9)	Post-hoc-Tests
+10)	Plot der Mittelwerte 
+11)	Berechnung der Effektstärke
+12)	Eine Aussage
+
+
+
+### Hypothese
+✓ H1: Es gibt einen Mittelwertsunterschied bei Gehalt zwischen AssocProf, AsstProf und Prof. 
+$$M1≠M2≠M3\quad für\;min.\;einen\;Vergleich$$
+✓ H0: Es gibt keinen Mittelwertsunterschied bei Gehalt zwischen AssocProf, AsstProf und Prof. 
+$$M1=M2=M3$$
+
+### Voraussetzungen der einfaktoriellen Varianzanalyse ohne Messwiederholung
+
+✓ AV "salary" ist metrisch, ratioskaliert.
+
+✓ Die UV (Faktor) "rank" - ist kategorial, ordinalskaliert.
+
+✓ Die durch den Faktor gebildeten Gruppen sind unabhängig. Jeder Proband hat ausschliesslich nur einen Rank.
+
+✓ Die abhängige Variablen ist normalverteilt innerhalb jeder der Gruppen (Ab > 25 Probanden pro Gruppe sind Verletzungen in der Regel unproblematisch) -> siehe Histogramm und QQplot. 
+
+✓ Homogenität der Varianzen: Die Gruppen stammen aus Grundgesamtheiten mit annähernd identischen Varianzen der abhängigen Variablen -> siehe Levene-Test
+
+### Grundlegende Konzepte: Die Grundidee der Varianzanalyse
+
+Die einfaktorielle Varianzanalyse – auch "einfaktorielle ANOVA" – testet, ob sich die Mittelwerte mehrerer unabhängiger Gruppen (oder Stichproben) unterscheiden, die durch eine kategoriale unabhängige Variable definiert werden. 
+
+Diese kategoriale unabhängige Variable wird im Kontext der Varianzanalyse als "Faktor" bezeichnet. Entsprechend werden die Ausprägungen der unabhängigen Variable "Faktorstufen" genannt, wobei auch der Begriff der "Treatments" gebräuchlich ist. 
+
+Das Prinzip der Varianzanalyse besteht in der Zerlegung der Varianz der abhängigen Variable. Die Gesamtvarianz setzt sich aus der sogenannten "Varianz innerhalb der Gruppen" und der "Varianz zwischen den Gruppen" zusammen.
+
+Die einfaktorielle ANOVA stellt eine Verallgemeinerung des t-Tests für unabhängige Stichproben für Vergleich von mehr als zwei Gruppen (oder Stichproben) dar. 
+
+Die Fragestellung der einfaktoriellen Varianzanalyse wird oft so verkürzt: "Unterscheiden sich die Mittelwerte einer unabhängigen Variable zwischen mehreren Gruppen? Welche Faktorstufen unterscheiden sich?"
+
+### Boxplots
+```{r}
+my_xlab <- paste(levels(salary$rank),"\n(N=",table(salary$rank),")",sep="")
+
+ggplot(salary, aes(x=rank, y=salary, fill=rank)) +
+    geom_boxplot(varwidth = TRUE, alpha=0.2, outlier.colour = 'darkblue') +
+    theme(legend.position="none") +
+    scale_x_discrete(labels=my_xlab)
+```
+✓ Boxplot zeigt Ausreisser beim Professorengehalt.<br>
+✓ Die Mittelwerte von den Gruppen scheinen sich unterscheiden. 
+  Um zu überprüfen, ob die Unterschiede signifikant sind, wird eine Varianzanalyse durchgeführt.
+  
+### Normalverteilung
+
+**Prüfung mittels Histogramm**
+```{r}
+salary %>%
+  group_by(rank) %>%
+  ggplot(aes(salary, color=rank)) + 
+  geom_histogram(aes(fill = rank), bins = 20, alpha=0.2) +
+  facet_wrap(~rank) +
+  theme(legend.position="none") +
+  labs(x= "Gehalt",y = "Anzahl" )
+```
+**Prüfung mittels qqPlot**
+```{r}
+qqPlot(salary ~ rank, data=salary, 
+       layout=c(1, 4))
+```
+✓ Das Gehalt bei den Gruppen tendiert zu einer Normalverteilung.
+
+### Prüfung der Varianzhomogenität (Levene-Test)
+
+✓ H0: die Varianzen der Gruppen unterscheiden sich nicht, p-value > 0.05 -> die Variablen sind homogenen.
+✓ H1: die Varianzen der Gruppen unterscheiden sich, p-value <= 0.05 -> die Variablen sind hetrogen.
+```{r}
+leveneTest(salary$salary ~ salary$rank, center="mean")
+```
+Der Levene-Test signifikant(F(2,394) = 41.586, p = 2.2e-16), so dass von Varianzhetrogenität ausgegangen werden kann. Das heisst: <br>
+✓  **es muss eine Welch-Korrektur durchgeführt werden.**
+
+### Deskriptive Statistiken
+```{r}
+salary %>%
+group_by(rank) %>%
+  summarise(Anzahl = n(), Mittelwert = mean(salary), Median = median(salary), Standardabweichung = sd(salary)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+✓  Es gibt einen Mittelwertsunterschied zwischen den Gruppen. Vor allem das Gehalt des Professors (M = 126772.11, SD = 27718.67, n = 266) ist viel höher als das der restlichen Gruppen.
+
+### Ergebnisse der einfaktoriellen Varianzanalyse
+
+**Modell mit Welch-Korrektur**
+```{r}
+ANOVAmitWelch <- oneway.test(salary$salary ~ salary$rank)
+ANOVAmitWelch
+```
+Das Gesamtmodel ist signifikant geworden (F(2,177.19) = 271.44 , p = 2.2e-16). <br>
+Allerdings lässt sich aufgrund dieses Tests nicht bestimmen, welche der drei Gruppen sich signifikant voneinander unterscheiden. Es ist denkbar, dass sich lediglich ein Paar signifikant unterscheidet und zwischen den übrigen keine signifikanten Unterschiede vorliegen. Daher wird ein Post-hoc-Test durchgeführt.
+
+###	Post-hoc-Tests
+
+**Welcher Vergleich wird signifikant und welcher nicht? <br>**
+**Welche Gruppen sind unabhängig und welche nicht?**
+
+Man kann anhand von Post-hoc-Tests klären, zwischen welchen Faktorstufen (Ranks) signifikante Unterschiede bezüglich des Gehalt bestehen.
+```{r}
+TUKEY <- TukeyHSD(aov(data=salary, salary ~ rank))
+TUKEY
+```
+Das Testergebnis belegt die oben aufgestellte Vermutung, dass sich alle Mittelwertsgehälter aller Gruppen signifikant voneinander unterscheiden.(alle p-values < 0.05)
+
+```{r}
+plot(TUKEY , las=1 , col="red")
+```
+Der Games-Howell ist ein Post-Hoc-Test, der optimiert für hetrogene Daten ist. Daher der Levene-Test eine Verletzung der Homogenotät nahliegt, sollte in Verfahren verwendet werden, welche dieses Verletzung bei dem multiple Tests berücksichtigt
+```{r}
+salary %>% 
+  games_howell_test(salary ~ rank)
+```
+Alle p-values sind auch <0.05. Das belegt, dass sich alle Mittelwertsgehälter **aller Gruppen signifikant voneinander unterscheiden.**
+
+**Sind Gruppenbildungen möglich/ sinnvoll?**
+```{r}
+generate_label_df <- function(TUKEY, variable){
+     Tukey.levels <- TUKEY[[variable]][,3]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+ 
+LABELS <- generate_label_df(TUKEY , "rank")
+
+table(LABELS)
+```
+
+✓ Es werden drei Gruppen gebildet - kein Veränderung.
+
+###	Plot der Mittelwerte 
+```{r}
+ggplot(salary, aes(x=rank, y=salary, group=1))+
+  stat_summary(fun = mean, geom="point", size=3)+
+  stat_summary(fun = mean, geom="line")+
+  stat_summary(fun.data = mean_cl_normal, geom="errorbar",width=.2, size=.25)+
+  labs(x="Rank", y="Gehalt")+
+  theme_classic()
+```
+
+###	Berechnung der Effektstärke
+
+**Das partielle Eta-Quadrat**
+Das partielle Eta-Quadrat (partielles η2) ist ein Mass für die Effektgrösse: Es setzt die Variation, die durch einen Faktor erklärt wird, in Bezug mit jener Variation, die nicht durch andere Faktoren im Modell erklärt wird.
+$$\eta^2 =\frac{QS_{Zwischen}}{QS_{total}}$$
+$$\eta^2_{par.} =\frac{QS_{Zwischen}}{QS_{zwischen}+QS_{innerhalb}}$$
+```{r}
+ANOVA <- aov(data=salary, salary ~ rank)
+eta <- effectsize::eta_squared(ANOVA, partial = TRUE)
+eta
+```
+Das partielle Eta-Quadrat beträgt 0.39. Das heißt, dass es 39% er Variation im Gehalt durch Rank aufgeklärt wird.
+
+**Effektstärke**
+Um die Bedeutsamkeit eines Ergebnisses zu beurteilen, werden Effektstärken berechnet.<br>
+
+Da R das partielle Eta-Quadrat ausgibt, wird dieses hier in die Effektstärke nach Cohen (1988) umgerechnet. In diesem Fall befindet sich die Effektstärke immer zwischen 0 und unendlich.
+$$f=\sqrt\frac{eta^{2}}{1-eta^{2}}$$
+```{r}
+eff<- sqrt(eta$Eta2/(1-eta$Eta2))
+sprintf ("Die Effektstärke liegt bei:%.2f",eff)
+```
+Um zu beurteilen, wie gross dieser Effekt ist, kann man sich an der Einteilung von Cohen (1988) orientieren:
+$$\begin{align}
+\text{Schwacher Effekt: } 0.10 &< ||f|| < 0.25             \\
+\text{Schwacher bis mittlerer Effekt: } 0.25 &= ||f||      \\
+\text{Mittlerer Effekt: } 0.25 &< ||f|| < 0.40             \\
+\text{Mittlerer bis starker Effekt: }0.40 &= ||f||         \\
+\text{Starker Effekt: } 0.40 &< ||f||        
+\end{align}$$
+
+Damit entspricht eine Effektstärke von **0.81** einem starken Effekt.
+
+###	Eine Aussage
+Der Rang hat einen signifikanten Einfluss auf das Gehaltsniveau (F(2,177.19) = 271.44 , p = 2.2e-16).<br>
+39% der Variation im Gehalt durch Rank aufgeklärt wird.<br>
+Die Effektstärke nach Cohen (1988) liegt bei f = 0.81 und entspricht einem starken Effekt. H0 wird abgelehnt, H1 angenommen.
+
+Post-hoc-Tests mit Tukey und Games-Howell zeigen, dass sich drei Rankgruppen  bilden lassen (alle p < .05)
+
+Professor ((M = 126772.11, SD = 27718.67, n = 266)), 
+AssocProf (M = 93876.44, SD = 13831.70, n = 64),
+AsstProf (M = 80775.99, SD = 8174.11, n = 67) 
+bilden jede für sich eine eigene Gruppe.
+
+Damit kann festgehalten, werden, dass alle drei Rankgruppen unabhängige Gruppen bilden und sich signifikant unterscheiden. 

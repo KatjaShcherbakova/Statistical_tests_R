@@ -1,0 +1,88 @@
+---
+title: "t-test für eine Stichprobe"
+output: html_notebook
+---
+**Beschreibung** <br>
+Wir möchten herausfinden, ob die 1,5 kg Pakete, die wir ausliefern auch wirklich 1.5kg im Schnitt wiegen. Um das zu untersuchen, wiegen wir 15.250 Pakete und vergleichen das tatsächliche Gewicht mit dem Gewicht, das sie haben sollten (1.5 kg).
+Gibt es einen Unterschied zwischen dem tatsächlichen Gewicht der Pakete und dem Sollgewicht von 1.5 kg pro Paket?
+
+```{r}
+library(car)
+```
+
+```{r}
+pakete <- read.csv('Pakete.csv')
+head(pakete)
+```
+
+### 1) Hypothese
+Gibt es einen Unterschied zwischen dem tatsächlichen Gewicht der Pakete und dem Sollgewicht von 1.5 kg pro Paket?
+
+### 2) Voraussetzungen für den t-Tests für eine Stichprobe
++	Die Variable ist min. intervallskaliert -> Gewicht ist Ratioskaliert
+
++	Die Variable ist in die Grundgesamtheit normalverteilt -> sieh Histogramm
+
+### 3) Normalverteilung
+```{r}
+
+hist(pakete$Gewicht, 
+     col = 'pink',
+     main = 'Histogramm von Gewischt der Pakete',
+     xlab = 'Gewicht',
+     ylab = 'Anzahl der Pakete',
+     breaks= 15)
+```
+**Prüfung der Normalverteilung mittels QQPlot**
+```{r}
+qqPlot(pakete$Gewicht, main = "Gewicht", col = "purple")
+```
+
+Die Normalverteilung liegt vor.
+
+### 4) Deskriptive Statistiken
+```{r}
+psych::describe(pakete$Gewicht)
+```
+
+### 5) Ergebnis der Auswertung
+```{r}
+proba <- t.test(pakete$Gewicht, mu=1.5)
+proba
+```
+
+Es gibt einen Unterschied zwischen dem Gewicht der Stichprobe und dem erforderlichen Gewicht (1,5 kg) (t(15249) = -82.46, p-value < 2.2e-16, n=15250)
+p-value < 0.05 -> das Ergebnis ist signifikant, H0 kann verworfen werden.
+
+
+### z-Tranformation
+
+```{r}
+psych::describe(pakete$Gewicht) #Zur Prüfung der z-Transformation
+```
+
+```{r}
+gewicht_pakete_z <- scale(pakete$Gewicht) #Z-Transformation
+```
+
+```{r}
+# Histogramm zur Kontrolle der Verteilung
+hist(gewicht_pakete_z, 
+     main = "Das Gewicht der Pakete - z-transformiert", 
+     xlab ="Gewicht", 
+     ylab = "Anzahl der Pakete", 
+     col = "pink",
+     breaks=15)
+
+```
+```{r}
+pakete["gewicht_pakete_z"] <- gewicht_pakete_z
+View(pakete)
+```
+
+```{r}
+norm_z = (1.5-mean(pakete$Gewicht))/sd(pakete$Gewicht)# Z-Wert berechnen
+t.test(pakete$gewicht_pakete_z,mu=norm_z)
+
+```
+

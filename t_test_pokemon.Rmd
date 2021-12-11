@@ -1,0 +1,134 @@
+---
+title: "t-Tests - Pokemons"
+output: html_notebook
+---
+## t-Tests für unabhängige Stichproben
+
+```{r}
+library(readxl)
+pokemon <- read_excel("pokemon.xlsx")
+View(pokemon)
+```
+
+### 1) Hypothese
++ H1: "Die Attackstärke für die Spielern, die mit Legendary Pokemon  spielen, ist größer." 
+$$
+M_{L} > M_{nL}
+$$
+
++ H0: "Die Attackstärke bei  Spielern, die mit Legendary Pokemon  spielen, ist gleich oder weniger als bei Spielern, die mit nicht Legendary Pokemon spielen "
+$$
+M_{L} \leq M_{nL}
+$$
+### 2) Voraussetzungen des t-Tests für unabhängige Stichproben
++ Die abhängige Variable ist intervallskaliert -> Attack (AV)
++ Es liegt eine unabhängige Variable vor, mittels der die beiden zu vergleichenden gebildet werden. -> Ja, 
+Legendary - False, True
+```{r}
+pokemon$Legendary <- as.factor(pokemon$Legendary)
+summary(pokemon$Legendary)
+```
++ Das untersuchte Merkmal ist in den Grundgesamtheiten der beiden Gruppen normalverteilt -> siehe Histogramm
++ Homogenität der Varianzen: Die Gruppen kommen aus Grundgesamtheiten mit annähernd identischer Varianz -> siehe Levene-Test
++ Die einzelnen Messwerte sind voneinander unabhängig (das Verhalten einer Versuchsperson hat keinen Einfluss auf das Verhalten einer anderen) -> ist gegeben.
+
+**Prüfung der Normalverteilung mithilfe des Histogramms**
+```{r}
+library(dplyr)
+library(ggplot2)
+
+  pokemon %>%
+  group_by(Legendary) %>%
+  ggplot(aes(Attack)) + 
+    geom_histogram( binwidth=15, aes(fill=Legendary), color="#e9ecef", alpha=0.7 ) + # Erstelle ein Histogramm, Unterteilung, Farbe + Transparenz
+   facet_wrap(~Legendary)+ # Zwei Graphen
+    theme_classic()+ #Farbschema
+    labs(x="Gruppierungen", y="Anzahl") # Beschriftung
+```
+Es liegt eine Normalverteilung von.
+```{r}
+A <-subset(pokemon, pokemon$Legendary =="TRUE")
+B <-subset(pokemon, pokemon$Legendary =="FALSE")
+
+x <- scale(A$Attack)
+hist(x, col='tomato', freq=FALSE, main="Histogramm von True Legendary")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+```{r}
+x <- scale(B$Attack)
+hist(x, col='tomato', freq=FALSE, main="Histogramm von False Legendary ")
+m <- mean(x) # Mittelwert von x
+s <-  sd(x)  #Standardabweichung von x
+curve(dnorm(x,m,s),add=TRUE,lwd=3, col="blue") # Dichefunktion, Add setzen, Breite: drei, Farbe: Rot
+```
+
+### 3) Grundlegende Konzepte: Was ist t-Test für unabhängige Stichproben?
+Der t-Test für unabhängige Stichproben testet, ob die Mittelwerte zweier unabhängiger Stichproben verschieden sind.
+Die Fragestellung des t-Tests für unabhängige Stichproben wird oft so verkürzt:
+"Unterscheiden sich die Mittelwerte zweier unabhängiger Stichproben?
+
+### 4) Deskriptive Statistiken
+```{r}
+library(dplyr)
+pokemon %>%
+group_by(Legendary) %>%
+  summarize(Anzahl = n(), Mittelwert = mean(Attack), Median = median(Attack), Standardabweichung = sd(Attack)) %>%
+  mutate_if(is.numeric, round, 2)
+```
+Es zeigt sich für diese Fragestellung einen Mittelwertsunterschied. Die Attacke bei Spielern mit LegendPokomen ist höher (M = 116.68 SD = 30.35, n = 65) als bei Spielern nicht mit LegendPokemon 
+(M = 75.67 SD = 30.49, n = 735).
+
+### 5) Test auf Varianzhomogenität (Levene-Test)
+```{r}
+library(car)
+
+leveneTest(pokemon$Attack, pokemon$Legendary, center = mean)
+```
+Also es ist zuerkennen, das Homogenität vorliegt, da der Levene-Test nicht signifikant ist. Daher können wir von gleichen Varianzen ausgehen (F(1, 798) = 0.0031, p = 0.9559). Es ist daher nicht notwendig eine Welch-Korrektur durchzuführen.
+
+### 6) Ergebnisse des t-Tests für unabhängige Stichproben
+Da in dieser Aufgabe wird eine **gerichtete Hypothese** verwendet, dann wir ersetzen  "con= 0.95", "alt ="less"". 
+
+“Var.eq =True” bedeutet, dass die Varianzen homogen (gleich) sind.
+Die Reihenfolge von den Variablenist wichtig: erst AV und dann UV
+
+```{r}
+##ungerichtete Hypothese
+test1<- t.test(pokemon$Attack~pokemon$Legendary, var.eq = TRUE, con= 0.95, alt = "less")
+
+test1
+```
+Die Teststatistik betraegt t = -10.397 und der zugehörige Signifikanzwert p = 2.2e-16. 
+Damit ist der Unterschied signifikant(t(798) = -10.397,p-value < 2.2e-16)
+```{r}
+qt(.95, df=798)
+```
+
+
+### 7) Berechnung der Effektstärke
+****Die Gruppen sind ungleichgroß (False-735, True- 65)***
+$$
+d = (\frac {n1+n2}{n1*n2}+ 0.5*d^2/df) * (\frac{(n1+n2}{df})
+$$
+```{r}
+library(effsize)
+
+cohen.d(d = pokemon$Attack, f= pokemon$Legendary)
+```
+Interpretation von d nach Cohen (1988):
+$$
+\begin{align}
+\text{Schwacher Effekt: } 0.20 &< ||d|| < 0.50             \\
+\text{Schwacher bis mittlerer Effekt: } 0.50 &= ||d||      \\
+\text{Mittlerer Effekt: } 0.50 &< ||d|| < 0.80             \\
+\text{Mittlerer bis starker Effekt: }0.80 &= ||d||         \\
+\text{Starker Effekt: } 0.80 &< ||d||        
+\end{align}
+$$
+Damit entspricht eine Effektstaerke von ||-1.35|| einem starken Effekt.
+
+### 8) Eine Aussage
+
+Die Attackstärke bei Spielern, die nicht mit LegendPokemon spielen, ist signifikant weniger  (M =76.67 , SD = 30.49  n = 735) als bei Spielern, die mit LegendPokemon spielen  (M = 116.68, SD = 30.35, n = 65) (t = -10.397, df = 798, p-value < 2.2e-16). Die Effektstärke liegt bei d = ||-1.35|| und entspricht damit einem starken Effekt nach Cohen (1988). H0 kann verworfen werden.

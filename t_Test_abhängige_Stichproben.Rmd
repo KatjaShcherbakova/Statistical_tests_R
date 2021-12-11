@@ -1,0 +1,4 @@
+---
+title: "t-Test für abhängige Stichproben"
+output: html_notebook
+---
